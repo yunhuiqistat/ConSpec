@@ -1,2 +1,7 @@
 ^ConSpec\.Rproj$
 ^\.Rproj\.user$
+^doc$
+^Meta$
+^LICENSE\.md$
+^Arxiv$
+^README\.Rmd$

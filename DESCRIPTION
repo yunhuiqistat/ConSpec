@@ -1,13 +1,51 @@
 Package: ConSpec
-Title: What the Package Does (One Line, Title Case)
+Title: Integrative Contrastive Spectral Clustering for Exploring Hidden Effects
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R:
+    person(
+        given = "Yunhui",
+        family = "Qi",
+        email = "yunhuiqistat@gmail.com",
+        role = c("aut", "cre")
+    )
+Description: Implements contrastive spectral methods for identifying
+    multivariate structure that is enriched in a target dataset relative to
+    an ancillary dataset. The package includes methods for contrastive
+    principal component analysis, sparse contrastive principal component
+    analysis, contrastive cross-covariance analysis, sparse contrastive
+    cross-covariance analysis, sample scoring, clustering, and visualization.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 URL: https://github.com/yunhuiqistat/ConSpec
 BugReports: https://github.com/yunhuiqistat/ConSpec/issues
+Suggests:
+    ComplexHeatmap,
+    compositions,
+    cowplot,
+    dplyr,
+    ggh4x,
+    gridExtra,
+    knitr,
+    patchwork,
+    pheatmap,
+    RColorBrewer,
+    rmarkdown,
+    Seurat,
+    SeuratData,
+    tidyverse,
+    viridis
+VignetteBuilder: knitr
+Imports: 
+    aricode,
+    cluster,
+    ggplot2,
+    ggpubr,
+    ggsci,
+    MASS,
+    mclust,
+    PMA
+Depends: 
+    R (>= 3.5)
+LazyData: true
