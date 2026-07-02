@@ -70,7 +70,7 @@ In this vignette, we will use ConSpec package to reproduce the analysis in the o
 
 ## 1. Single dataset eta tuning example
 
-```{r  eta tuning example, fig.width=5, fig.height=5, out.width="100%"}
+```{r  eta-tuning-example, fig.width=5, fig.height=5, out.width="100%"}
 data(sim_data_CSC)
 eta_range <-  seq(0, 100, 0.2)
 Xt <- scale(sim_data_CSC$Xt, scale = FALSE)
@@ -143,7 +143,7 @@ p_eta_supp <- ggplot(meta_all[!(meta_all$eta %in% c("eta==0","eta==1.6")),])+
 ```
 
 ## 2. Simulation for contrastive spectral clustering, generating Table 1 
-```{r  simulation cPCA, eval=FALSE}
+```{r  simulation-cPCA, eval=FALSE}
 set.seed(111)
 mu2_candidates <- c(1, 2)
 p1_candidates <- c(5, 10)
@@ -177,7 +177,7 @@ for (mu2 in mu2_candidates) {
 # save(results, file = "../inst/SavedData/sim_cPCA.RData")
 ```
 
-```{r  simulation cPCA visualization, eval=TRUE}
+```{r  simulation-cPCA-visualization, eval=TRUE}
 load(file = "../inst/SavedData/sim_cPCA.RData")
 plot_results <- pivot_longer(results, 1:4, names_to = "Type", values_to = "ARI")
 plot_results$Analysis <- sapply(plot_results$Type, function(x){strsplit(x,"_")[[1]][2]})
@@ -212,7 +212,7 @@ print(p_cPCA)
 
 ## 3. Simulation for sparse contrastive spectral clustering, generating Table 2
 
-```{r simulation scPCA, eval = FALSE}
+```{r simulation-scPCA, eval = FALSE}
 set.seed(111)
 mu2_candidates <- c(1, 2)
 p3_candidates <- c(100, 300)
@@ -246,7 +246,7 @@ for (mu2 in mu2_candidates) {
 # save(results, file = "../inst/SavedData/sim_scPCA.RData")
 ```
 
-```{r  simulation scPCA visualization, eval=TRUE}
+```{r  simulation-scPCA-visualization, eval=TRUE}
 load(file = "../inst/SavedData/sim_scPCA.RData")
 plot_results <- pivot_longer(results, 1:4, names_to = "Type", values_to = "ARI")
 plot_results$Analysis <- sapply(plot_results$Type, function(x){strsplit(x,"_")[[1]][2]})
@@ -282,7 +282,7 @@ print(p_scPCA)
 
 ## 4. Simulation for 3CA and s3CA, generating Table 3
 
-```{r simulation 3CA and s3CA, eval = FALSE}
+```{r simulation-3CA-and-s3CA, eval = FALSE}
 set.seed(2024)
 
 all_results <- list()
@@ -330,7 +330,7 @@ final_data <- do.call(rbind, all_results)
 save(final_data, file = "../inst/SavedData/sim_3CA_s3CA.RData")
 ```
 
-```{r simulation 3CA and s3CA visualization, eval = TRUE}
+```{r simulation-3CA-and-s3CA-visualization, eval = TRUE}
 load(file = "../inst/SavedData/sim_3CA_s3CA.RData")
 summary_table <- final_data %>%
   group_by(Method, Dimension_p, mu_or_s) %>%
@@ -407,7 +407,7 @@ A significant proportion of cells carrying targeting gRNAs clustered in the cent
 *   **Protein Validation:** Orthogonal ADT data demonstrated that cells in the Upstream and Downstream clusters exhibited significantly reduced PD-L1 protein levels, whereas cells in the central overlap region maintained high PD-L1 levels comparable to wild-type controls.
 
 
-```{r CRISPER PCA, eval = TRUE, fig.width=10, fig.height=5, out.width="100%"}
+```{r CRISPER-PCA, eval = TRUE, fig.width=10, fig.height=5, out.width="100%"}
 # ==============================================================================
 # Module 1: Setup and Data Loading
 # ==============================================================================
@@ -530,7 +530,7 @@ print(ggarrange(p_t,p_a, common.legend = TRUE,legend = "bottom", labels = "AUTO"
 
 ```
 
-```{r CRISPER cPCA, eval = TRUE, fig.width=5, fig.height=5, out.width="100%"}
+```{r CRISPER-cPCA, eval = TRUE, fig.width=5, fig.height=5, out.width="100%"}
 # 4. Run cPCA Algorithm
 # Formula: Eigen decomposition of (Cor(Xt) - eta * Cor(Xa))
 # Eta (η) = 5 (Selected based on hyperparameter tuning to remove cell cycle)
@@ -685,7 +685,7 @@ print(p_val_mixscape)
 To show that the cPCA results are robust to the choice of the contrastive hyperparameter ($\eta$), we performed a sensitivity analysis by varying it across a range of values (1, 2, 3, 4, 5, 6, 8, 10). For each candidate value, we re-ran the cPCA algorithm and generated two plots, one is the cPCA latent space colored by functional annotation and shaped by k-means clusters, and the other is the PD-L1 protein expression mapped onto the cPCA space. This allowed us to assess whether the biological signal of interest (IFN pathway perturbations) remains consistently resolved across different $\eta$ values and whether the expected validation (reduced PD-L1 in true KO clusters) holds consistently.
 
 
-```{r CRISPER eta sensitivity, eval = TRUE}
+```{r CRISPER-eta-sensitivity, eval = TRUE}
 # 1. Define Candidates for Sensitivity Analysis
 eta_candidates <- c(1, 2, 3, 4, 5, 6, 8, 10) 
 
@@ -807,7 +807,7 @@ Same to target-based nuisance regression, the success of this method depends hea
 In addition, unlike cPCA, which uses a continuous hyperparameter ($\eta$) to weigh the trade-off between target and background variance, this method performs orthogonal projection. It forces the resulting signal to be strictly orthogonal to the control's variation, which may be too restrictive if the biological signal is not perfectly orthogonal to the cell cycle.
 
 
-```{r CRISPER comparison to simple alternatives, eval = TRUE, fig.width=10, fig.height=7, out.width="100%"}
+```{r CRISPER-comparison-to-simple-alternatives, eval = TRUE, fig.width=10, fig.height=7, out.width="100%"}
 # Define the K values to iterate over
 k_values <- c(1, 2, 5, 10)
 
@@ -1653,7 +1653,7 @@ cat(sprintf(
 
 Sparse solutions may use different correlated features to represent similar sample trajectories. We therefore treat loading alignment as a supplementary diagnostic rather than the primary evidence for temporal concordance.
 
-```{r supplementary_alignment_heatmap, eval = TRUE}
+```{r supp_alignment_heatmap, eval = TRUE}
 u_ctrl <- CCA_ctrl$u
 v_ctrl <- CCA_ctrl$v
 u_trt  <- CCA_trt$u
@@ -1837,7 +1837,7 @@ The heatmaps display the mean abundance of each selected feature at each of the 
 
 
 
-```{r contrastive_feature_heatmaps, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
+```{r ctst_feature_heatmaps, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
 ## Contrastive C1 temporal feature heatmaps
 top_n_heatmap <- 10
 time_order <- c("DPT-2", "DPT-7", "DPT-12", "DPT-17")
@@ -1941,6 +1941,189 @@ grid.draw(combined_heatmap)
 
 
 **Interpretation.** These heatmaps describe how the selected features contribute to the contrastive temporal organization. They should not be interpreted as causal microbe–metabolite interactions. The main result is that the selected metabolites and microbial features jointly distinguish the acute, intermediate, and later treatment states.
+
+
+```{r trt_feature_heatmaps, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
+## Treatment-only component 1
+mtb_loadings_trt <- get_top_loadings(
+  CCA_trt$u,
+  colnames(Xt),
+  component = 1,
+  top_n = top_n_heatmap
+)
+
+mb_loadings_trt <- get_top_loadings(
+  CCA_trt$v,
+  colnames(Yt),
+  component = 1,
+  top_n = top_n_heatmap
+)
+
+mat_mtb_trt <- make_temporal_matrix(
+  Xt,
+  meta_t,
+  names(mtb_loadings_trt)
+)
+
+mat_mb_trt <- make_temporal_matrix(
+  Yt,
+  meta_t,
+  names(mb_loadings_trt)
+)
+
+mtb_labels_trt <- wrap_labels(
+  rownames(mat_mtb_trt),
+  width = 28
+)
+
+mb_labels_trt <- wrap_labels(
+  rownames(mat_mb_trt),
+  width = 28
+)
+
+ph_mtb_trt <- pheatmap(
+  mat_mtb_trt,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  display_numbers = FALSE,
+  color = colorRampPalette(c("white", "navy"))(50),
+  labels_row = mtb_labels_trt,
+  main = "Treatment C1 – Metabolome",
+  fontsize_row = 11,
+  fontsize_col = 10,
+  angle_col = 0,
+  border_color = NA,
+  legend = TRUE,
+  silent = TRUE
+)
+
+ph_mb_trt <- pheatmap(
+  mat_mb_trt,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  display_numbers = FALSE,
+  color = colorRampPalette(c("white", "firebrick3"))(50),
+  labels_row = mb_labels_trt,
+  main = "Treatment C1 – Microbiome",
+  fontsize_row = 11,
+  fontsize_col = 10,
+  angle_col = 0,
+  border_color = NA,
+  legend = TRUE,
+  silent = TRUE
+)
+
+combined_heatmap_trt <- arrangeGrob(
+  ph_mtb_trt$gtable,
+  ph_mb_trt$gtable,
+  ncol = 2
+)
+
+grid.newpage()
+grid.draw(combined_heatmap_trt)
+
+# treatment_file <- file.path(
+#   "../inst/SavedFigures",
+#   "Chicken_treatment_feature_heatmaps.pdf"
+# )
+#
+# pdf(treatment_file, width = 14, height = 6.5)
+# grid.newpage()
+# grid.draw(combined_heatmap_trt)
+# dev.off()
+```
+
+
+
+```{r ctrl_feature_heatmaps, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
+## Control-only component 1
+mtb_loadings_ctrl <- get_top_loadings(
+  CCA_ctrl$u,
+  colnames(Xa),
+  component = 1,
+  top_n = top_n_heatmap
+)
+
+mb_loadings_ctrl <- get_top_loadings(
+  CCA_ctrl$v,
+  colnames(Ya),
+  component = 1,
+  top_n = top_n_heatmap
+)
+
+mat_mtb_ctrl <- make_temporal_matrix(
+  Xa,
+  meta_a,
+  names(mtb_loadings_ctrl)
+)
+
+mat_mb_ctrl <- make_temporal_matrix(
+  Ya,
+  meta_a,
+  names(mb_loadings_ctrl)
+)
+
+mtb_labels_ctrl <- wrap_labels(
+  rownames(mat_mtb_ctrl),
+  width = 28
+)
+
+mb_labels_ctrl <- wrap_labels(
+  rownames(mat_mb_ctrl),
+  width = 28
+)
+
+ph_mtb_ctrl <- pheatmap(
+  mat_mtb_ctrl,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  display_numbers = FALSE,
+  color = colorRampPalette(c("white", "navy"))(50),
+  labels_row = mtb_labels_ctrl,
+  main = "Control C1 – Metabolome",
+  fontsize_row = 11,
+  fontsize_col = 10,
+  angle_col = 0,
+  border_color = NA,
+  legend = TRUE,
+  silent = TRUE
+)
+
+ph_mb_ctrl <- pheatmap(
+  mat_mb_ctrl,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  display_numbers = FALSE,
+  color = colorRampPalette(c("white", "firebrick3"))(50),
+  labels_row = mb_labels_ctrl,
+  main = "Control C1 – Microbiome",
+  fontsize_row = 11,
+  fontsize_col = 10,
+  angle_col = 0,
+  border_color = NA,
+  legend = TRUE,
+  silent = TRUE
+)
+
+combined_heatmap_ctrl <- arrangeGrob(
+  ph_mtb_ctrl$gtable,
+  ph_mb_ctrl$gtable,
+  ncol = 2
+)
+
+grid.newpage()
+grid.draw(combined_heatmap_ctrl)
+
+# control_file <- file.path(
+#   "../inst/SavedFigures",
+#   "Chicken_control_feature_heatmaps.pdf"
+# )
+#
+# pdf(control_file, width = 14, height = 6.5)
+# grid.newpage()
+# grid.draw(combined_heatmap_ctrl)
+# dev.off()
+```
 
 ### G. Why use a multimodal analysis?
 

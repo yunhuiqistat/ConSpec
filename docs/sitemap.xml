@@ -1,0 +1,21 @@
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/LICENSE-text.html</loc></url>
+<url><loc>/LICENSE.html</loc></url>
+<url><loc>/articles/ContrastiveSpectralClustering.html</loc></url>
+<url><loc>/articles/index.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/cCCA.html</loc></url>
+<url><loc>/reference/cPCA.html</loc></url>
+<url><loc>/reference/eta_tuning_general.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/intro.html</loc></url>
+<url><loc>/reference/sim_3CA.html</loc></url>
+<url><loc>/reference/sim_CSC.html</loc></url>
+<url><loc>/reference/sim_data_CSC.html</loc></url>
+<url><loc>/reference/sim_s3CA.html</loc></url>
+<url><loc>/reference/sim_sCSC.html</loc></url>
+<url><loc>/reference/spec_clust.html</loc></url>
+</urlset>
+
