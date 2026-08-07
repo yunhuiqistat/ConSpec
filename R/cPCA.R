@@ -7,7 +7,7 @@
 #' @importFrom stats kmeans 
 #' @param Xt data frame for target group, samples in rows, variables in columns.
 #' @param Xa data frame for ancillary group, samples in rows, variables in columns.
-#' @param eta tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. It can be theo \code{eta_opt} from function eta_tuning_general()
+#' @param eta tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. Typically the \code{eta_opt} returned by \code{\link{eta_tuning_general}}.
 #' @param sparse_ctst parameter controlling the sparsity of scPCA, if NULL, use cPCA, else use scPCA. For use of scPCA, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.
 #' @param sparse_trt parameter controlling the sparsity of target sparse PCA, if NULL, use cPCA, else use scPCA. For use of scPCA, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.
 #' @param sparse_ctrl parameter controlling the sparsity of ancillary sparse PCA, if NULL, use cPCA, else use scPCA. For use of scPCA, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.

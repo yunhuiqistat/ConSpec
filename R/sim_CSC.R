@@ -31,6 +31,10 @@
 #' @param eta if eta is a vector, eta_tuning algorithm will be called to select optimal eta; if a number, eta will be used.
 #' @param repetition number of replications of the simulation.
 #' @param save_plot logical, whether save the score plot and loading plot for the first replication.
+#' @param clust_comps number of leading component scores used for kmeans clustering, both inside
+#'   \code{\link{eta_tuning_general}} and for the reported ARIs. \code{"auto"} applies the
+#'   \code{ckm_cluster - 1} rule, which is 1 for the two interesting clusters in this design.
+#' @param nstart number of random starts passed to \code{\link[stats]{kmeans}}.
 #' @export
 #' @return A data frame containing the selected optimal eta, the four metrics values.
 #' @examples
@@ -39,7 +43,10 @@ sim_CSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
                     mu1, mu2, theta1, theta2, p1, p2,
                     sigma_t = 1, sigma_a = 1,
                     Sigma_t = NULL, Sigma_a = NULL,
-                    eta, repetition = 10, save_plot = FALSE){
+                    eta, repetition = 10, save_plot = FALSE, clust_comps = "auto", nstart = 25){
+
+  ## ckm_cluster is 2 in this design, so the "auto" rule gives 1. A numeric value is used as is.
+  if(identical(clust_comps, "auto")){clust_comps <- 1}
 
   if(length(eta) > 1){
     eta_range <- eta
@@ -90,7 +97,8 @@ sim_CSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
       eta_use <- eta_tuning_general(Xt = Xt, Xa = Xa, eta_range = eta_range,
                                     plot = FALSE, sparse_trt = NULL, sparse_ctst = NULL,
                                     num_comps = 20,
-                                    km_cluster = 2, ckm_cluster = 2)$eta_opt
+                                    km_cluster = 2, ckm_cluster = 2,
+                                    clust_comps = clust_comps, nstart = nstart)$eta_opt
       eta_opt_set <- c(eta_opt_set, eta_use)
       cat(paste("Use optimal eta:", eta_use, "\n"))
     }
@@ -105,10 +113,12 @@ sim_CSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
     cPC <- Xt%*%cU[,1:2]
 
     # kmeans clustering using PCs
-    ARI_trt_nuisance <- c(ARI_trt_nuisance, spec_clust(PCt[,1], group = covariates_t$nuisance))
-    ARI_trt_interesting <- c(ARI_trt_interesting, spec_clust(PCt[,1], group = covariates_t$interesting))
-    ARI_ctst_nuisance <- c(ARI_ctst_nuisance, spec_clust(cPC[,1], group = covariates_t$nuisance))
-    ARI_ctst_interesting <- c(ARI_ctst_interesting, spec_clust(cPC[,1], group = covariates_t$interesting))
+    PCt_use <- PCt[, 1:clust_comps, drop = FALSE]
+    cPC_use <- cPC[, 1:clust_comps, drop = FALSE]
+    ARI_trt_nuisance <- c(ARI_trt_nuisance, spec_clust(PCt_use, group = covariates_t$nuisance)$ari)
+    ARI_trt_interesting <- c(ARI_trt_interesting, spec_clust(PCt_use, group = covariates_t$interesting)$ari)
+    ARI_ctst_nuisance <- c(ARI_ctst_nuisance, spec_clust(cPC_use, group = covariates_t$nuisance)$ari)
+    ARI_ctst_interesting <- c(ARI_ctst_interesting, spec_clust(cPC_use, group = covariates_t$interesting)$ari)
 
     if(repe == 1 & save_plot){
 
@@ -172,5 +182,5 @@ sim_CSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
                     ARI_ctst_nuisance = ARI_ctst_nuisance,
                     ARI_trt_interesting = ARI_trt_interesting,
                     ARI_trt_nuisance = ARI_trt_nuisance,
-                    eta = eta_opt_set))
+                    eta = if(length(eta_opt_set)) eta_opt_set else rep(eta, repetition)))
 }

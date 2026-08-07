@@ -2,6 +2,7 @@
 
 export(cCCA)
 export(cPCA)
+export(eta_tuning_bimodal)
 export(eta_tuning_general)
 export(sim_3CA)
 export(sim_CSC)

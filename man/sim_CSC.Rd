@@ -23,7 +23,9 @@ sim_CSC(
   Sigma_a = NULL,
   eta,
   repetition = 10,
-  save_plot = FALSE
+  save_plot = FALSE,
+  clust_comps = "auto",
+  nstart = 25
 )
 }
 \arguments{
@@ -64,6 +66,12 @@ sim_CSC(
 \item{repetition}{number of replications of the simulation.}
 
 \item{save_plot}{logical, whether save the score plot and loading plot for the first replication.}
+
+\item{clust_comps}{number of leading component scores used for kmeans clustering, both inside
+\code{\link{eta_tuning_general}} and for the reported ARIs. \code{"auto"} applies the
+\code{ckm_cluster - 1} rule, which is 1 for the two interesting clusters in this design.}
+
+\item{nstart}{number of random starts passed to \code{\link[stats]{kmeans}}.}
 }
 \value{
 A data frame containing the selected optimal eta, the four metrics values.

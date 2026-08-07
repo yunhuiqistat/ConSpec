@@ -13,7 +13,9 @@ eta_tuning_general(
   sparse_ctst = NULL,
   num_comps = 20,
   km_cluster = 2,
-  ckm_cluster = 2
+  ckm_cluster = 2,
+  clust_comps = "auto",
+  nstart = 25
 )
 }
 \arguments{
@@ -34,6 +36,10 @@ eta_tuning_general(
 \item{km_cluster}{number showing number of nuisance clusters defined from kmeans clustering on target PCA}
 
 \item{ckm_cluster}{number of interesting clusters defined from kmeans clustering on cPCA/scPCA}
+
+\item{clust_comps}{number of leading component scores used for the kmeans clustering and the silhouette score, for both the target-only and the contrastive analysis. The default \code{"auto"} uses \code{ckm_cluster - 1}, the smallest number of score dimensions that can separate \code{ckm_cluster} clusters. A numeric value overrides the rule. Using more components than \code{ckm_cluster - 1} allows residual nuisance variation to re-enter the criterion and inflates the selected \eqn{\eta}.}
+
+\item{nstart}{number of random starts passed to \code{\link[stats]{kmeans}}.}
 }
 \value{
 A list containing selected value of \eqn{\eta}  \code{eta_opt}, the vector of ARI(nuisance) \code{nuisance_ARI} and the vector of Silhouette \code{silhouette}, and the ggplot object \code{p}.

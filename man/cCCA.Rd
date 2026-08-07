@@ -9,7 +9,7 @@ cCCA(
   Ya,
   Xt,
   Yt,
-  eta = NULL,
+  eta,
   sparse_ctst = NULL,
   sparse_trt = NULL,
   sparse_ctrl = NULL
@@ -24,7 +24,7 @@ cCCA(
 
 \item{Yt}{data frame for another data type in target group, samples in rows, variables in columns. To conduct analysis based on cross corrlation matrix, each feature should be centered and standardized.}
 
-\item{eta}{tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. If NULL, the estimated eta introduced in paper will be used.}
+\item{eta}{tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. Either a number, typically the \code{eta_opt} returned by \code{\link{eta_tuning_bimodal}}, or the string \code{"ratio"} for the spectral-scale estimator \eqn{\lambda_1(S_t)/\lambda_1(S_a)}. Note that the estimator uses the leading singular values of the fitted decompositions, so its value depends on \code{sparse_trt} and \code{sparse_ctrl}.}
 
 \item{sparse_ctst}{parameter controlling the sparsity of s3CA, if NULL, use 3CA, else use s3CA. For use of s3CA, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.}
 
@@ -42,6 +42,6 @@ This function performs contrastive cross covariance/correlation analysis (3CA) o
 library(ConSpec)
 data(intro)
 res_3CA <- cCCA(Xa = intro$cCCA$Xa, Ya = intro$cCCA$Ya,
-Xt = intro$cCCA$Xt, Yt = intro$cCCA$Yt, eta  = NULL,
+Xt = intro$cCCA$Xt, Yt = intro$cCCA$Yt, eta  = "ratio",
 sparse_ctst = NULL, sparse_trt = NULL, sparse_ctrl = NULL)
 }

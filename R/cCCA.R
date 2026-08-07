@@ -9,7 +9,7 @@
 #' @param Xa data frame for one data type in ancillary group, samples in rows, variables in columns. To conduct analysis based on cross corrlation matrix, each feature should be centered and standardized.
 #' @param Yt data frame for another data type in target group, samples in rows, variables in columns. To conduct analysis based on cross corrlation matrix, each feature should be centered and standardized.
 #' @param Ya data frame for another data type in ancillary group, samples in rows, variables in columns. To conduct analysis based on cross corrlation matrix, each feature should be centered and standardized.
-#' @param eta tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. If NULL, the estimated eta introduced in paper will be used.
+#' @param eta tuning parameter controlling how much ancillary variation should be contrasted off from the target variation. Either a number, typically the \code{eta_opt} returned by \code{\link{eta_tuning_bimodal}}, or the string \code{"ratio"} for the spectral-scale estimator \eqn{\lambda_1(S_t)/\lambda_1(S_a)}. Note that the estimator uses the leading singular values of the fitted decompositions, so its value depends on \code{sparse_trt} and \code{sparse_ctrl}.
 #' @param sparse_ctst parameter controlling the sparsity of s3CA, if NULL, use 3CA, else use s3CA. For use of s3CA, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.
 #' @param sparse_trt parameter controlling the sparsity of target sparse cross covariance/correlation analysis, if NULL, use cross covariance/correlation analysis, else use sparse cross covariance/correlation analysis. For use of sparse version, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.
 #' @param sparse_ctrl parameter controlling the sparsity of ancillary sparse cross covariance/correlation analysis, if NULL, use cross covariance/correlation analysis, else use sparse cross covariance/correlation analysis. For use of sparse version, if vector, refer sumabss in PMD.cv from package PMA, if single number, refer sumabs in PMD in package PMA.
@@ -19,10 +19,10 @@
 #' library(ConSpec)
 #' data(intro)
 #' res_3CA <- cCCA(Xa = intro$cCCA$Xa, Ya = intro$cCCA$Ya,
-#' Xt = intro$cCCA$Xt, Yt = intro$cCCA$Yt, eta  = NULL,
+#' Xt = intro$cCCA$Xt, Yt = intro$cCCA$Yt, eta  = "ratio",
 #' sparse_ctst = NULL, sparse_trt = NULL, sparse_ctrl = NULL)
 
-cCCA <- function(Xa, Ya, Xt, Yt, eta  = NULL,
+cCCA <- function(Xa, Ya, Xt, Yt, eta,
                     sparse_ctst = NULL, sparse_trt = NULL, sparse_ctrl = NULL){
   set.seed(111)
   # empirical cross-covariance / cross-correlation
@@ -74,12 +74,12 @@ cCCA <- function(Xa, Ya, Xt, Yt, eta  = NULL,
   }
 
   # eta choice for contrastive analysis
-  if(is.null(eta)){
+  if(is.null(eta) || identical(eta, "ratio")){
     eta <- CCA_trt$d[1]/CCA_ctrl$d[1]
-    cat(paste("\n optimal eta is ", eta, sep = ""))
+    cat(paste("Using the spectral-scale estimator, eta = ", round(eta, 4), "\n", sep = ""))
   }
   else{
-    cat("Use provided eta value. \n")
+    cat("Using provided eta value.\n")
   }
 
   # (s)3CA

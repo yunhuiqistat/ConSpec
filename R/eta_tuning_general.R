@@ -16,6 +16,8 @@
 #' @param num_comps if scPCA, specify the number of contrastive components that will be estimated by PMD, default is 20.
 #' @param km_cluster number showing number of nuisance clusters defined from kmeans clustering on target PCA
 #' @param ckm_cluster number of interesting clusters defined from kmeans clustering on cPCA/scPCA
+#' @param clust_comps number of leading component scores used for the kmeans clustering and the silhouette score, for both the target-only and the contrastive analysis. The default \code{"auto"} uses \code{ckm_cluster - 1}, the smallest number of score dimensions that can separate \code{ckm_cluster} clusters. A numeric value overrides the rule. Using more components than \code{ckm_cluster - 1} allows residual nuisance variation to re-enter the criterion and inflates the selected \eqn{\eta}.
+#' @param nstart number of random starts passed to \code{\link[stats]{kmeans}}.
 #' @export
 #' @return A list containing selected value of \eqn{\eta}  \code{eta_opt}, the vector of ARI(nuisance) \code{nuisance_ARI} and the vector of Silhouette \code{silhouette}, and the ggplot object \code{p}.
 #' @examples
@@ -30,7 +32,11 @@
 
 eta_tuning_general <- function(Xt, Xa, eta_range = seq(0.5, 10, 0.5), plot = TRUE,
                        sparse_trt = NULL, sparse_ctst = NULL, num_comps = 20,
-                       km_cluster = 2, ckm_cluster = 2){
+                       km_cluster = 2, ckm_cluster = 2, clust_comps = "auto", nstart = 25){
+
+  ## ckm_cluster - 1 is the smallest number of score dimensions that can separate
+  ## ckm_cluster clusters, capped at 2 since only the top two components are computed
+  if(identical(clust_comps, "auto")){clust_comps <- min(ckm_cluster - 1, 2)}
 
   ## pre-processing
   Xt <- scale(Xt, center = TRUE, scale = FALSE)
@@ -47,7 +53,7 @@ eta_tuning_general <- function(Xt, Xa, eta_range = seq(0.5, 10, 0.5), plot = TRU
   else{Ut <- eigen(cov(Xt))$vectors[,1:2]} # use PCA
 
   PCt <- Xt%*%Ut
-  km <- kmeans(PCt[,1], centers = km_cluster)
+  km <- kmeans(PCt[, 1:clust_comps, drop = FALSE], centers = km_cluster, nstart = nstart)
   nuisance_labels <- km$cluster
 
   ## cPCA/scPCA for a range of eta
@@ -61,15 +67,19 @@ eta_tuning_general <- function(Xt, Xa, eta_range = seq(0.5, 10, 0.5), plot = TRU
                               sumabss = sparse_ctst, center = FALSE, trace = FALSE)$bestsumabs
       }
       # since the contrast matrix is symmetric, its fine to use either cU or cV, they are the same in theory, close in practice.
-      cU <- PMD(cov(Xt)-eta*cov(Xa), type="standard", sumabs=sumabs_ctst, K=num_comps, center = FALSE, trace = FALSE)$u
-      cV <- PMD(cov(Xt)-eta*cov(Xa), type="standard", sumabs=sumabs_ctst, K=num_comps, center = FALSE, trace = FALSE)$v
-      cU <- matrix(cU[,which.max(diag(t(cU)%*%cV))], ncol=1)
+      # u and v come from a single decomposition
+      pmd_ctst <- PMD(cov(Xt)-eta*cov(Xa), type="standard", sumabs=sumabs_ctst, K=num_comps, center = FALSE, trace = FALSE)
+      cU <- pmd_ctst$u
+      cV <- pmd_ctst$v
+      # rank the sparse components by u/v agreement, keep the clust_comps best
+      cU <- cU[, order(diag(t(cU)%*%cV), decreasing = TRUE)[1:clust_comps], drop = FALSE]
     }
     else{cU <- eigen(cov(Xt)-eta*cov(Xa))$vectors[,1:2]} # use cPCA
     cPC <- Xt%*%cU
-    ckm <- kmeans(cPC[,1], centers = ckm_cluster)
+    cPC_use <- cPC[, 1:clust_comps, drop = FALSE]
+    ckm <- kmeans(cPC_use, centers = ckm_cluster, nstart = nstart)
     interesting_labels <- ckm$cluster
-    silhouette_score <- silhouette(interesting_labels, dist(cPC[,1]))
+    silhouette_score <- silhouette(interesting_labels, dist(cPC_use))
     silhouette <- c(silhouette, mean(silhouette_score[, "sil_width"]))
     nuisance_ARI <- c(nuisance_ARI, ARI(nuisance_labels, interesting_labels))
   }

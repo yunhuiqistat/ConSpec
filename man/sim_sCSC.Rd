@@ -23,7 +23,9 @@ sim_sCSC(
   Sigma_t = NULL,
   Sigma_a = NULL,
   eta,
-  repetition = 10
+  repetition = 10,
+  clust_comps = "auto",
+  nstart = 25
 )
 }
 \arguments{
@@ -64,6 +66,12 @@ sim_sCSC(
 \item{eta}{if eta is a vector, eta_tuning algorithm will be called to select optimal eta; if a number, eta will be used.}
 
 \item{repetition}{number of replications of the simulation.}
+
+\item{clust_comps}{number of leading component scores used for kmeans clustering, both inside
+\code{\link{eta_tuning_general}} and for the reported ARIs. \code{"auto"} applies the
+\code{ckm_cluster - 1} rule, which is 1 for the two interesting clusters in this design.}
+
+\item{nstart}{number of random starts passed to \code{\link[stats]{kmeans}}.}
 }
 \value{
 A data frame containing the selected optimal eta, the four metrics values.

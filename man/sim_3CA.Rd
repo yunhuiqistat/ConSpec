@@ -12,7 +12,10 @@ sim_3CA(
   mu = 1,
   theta = 400,
   eta_true = 2.5,
-  repetition = 50
+  repetition = 50,
+  eta = seq(0.1, 6, 0.1),
+  km_cluster = 2,
+  ckm_cluster = 2
 )
 }
 \arguments{
@@ -31,9 +34,19 @@ sim_3CA(
 \item{eta_true}{Numeric. True signal-to-noise ratio (default 2.5).}
 
 \item{repetition}{Integer. Number of simulation repetitions (default 50).}
+
+\item{eta}{Contrast parameter rule. A numeric vector of length > 1 is the candidate grid
+handed to \code{\link{eta_tuning_bimodal}}, which is the default. A single number is used
+directly. \code{"ratio"} instead uses the spectral-scale estimator
+\eqn{\lambda_1(S_t)/\lambda_1(S_a)}, which is recorded in the \code{Eta_Ratio} column of
+the output either way.}
+
+\item{km_cluster}{Integer. Number of reference (nuisance) clusters used by the tuning algorithm.}
+
+\item{ckm_cluster}{Integer. Number of contrastive clusters used by the tuning algorithm.}
 }
 \value{
-A data frame with columns: Iteration, ARI_Target, ARI_Contrastive, Eta_Est
+A data frame with columns: Iteration, ARI_Target, ARI_Contrastive, Eta_Est, Eta_Ratio
 }
 \description{
 Simulates data for a contrastive cross covariance analysis scenario. Computes clustering performance using standard CCA and

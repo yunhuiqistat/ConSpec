@@ -284,7 +284,9 @@ print(p_scPCA)
 
 ```{r simulation-3CA-and-s3CA, eval = FALSE}
 set.seed(2024)
-
+## Passing a vector to `eta` selects the contrast parameter with eta_tuning_bimodal();
+## the spectral-scale ratio is still recorded in the `Eta_Ratio` column.
+eta_range <- seq(0.1, 6, 0.1)
 all_results <- list()
 scenarios_dense <- expand.grid(p_val = c(40, 80), mu_val = c(1.5, 3))
 
@@ -295,7 +297,8 @@ for(i in 1:nrow(scenarios_dense)) {
   cat(sprintf("\nRunning 3CA (p = q = %d, mu = %.1f)...\n", p_val, mu_val))
   
   dense_res <- sim_3CA(nt = 200, na = 200, p = p_val, q = p_val, mu = mu_val,
-                       theta = 400, eta_true = 2.5, repetition = 50)
+                       theta = 400, eta_true = 2.5, repetition = 50,
+                       eta = eta_range)
   
   dense_res$Method <- "3CA"
   dense_res$Dimension_p <- p_val
@@ -316,8 +319,9 @@ for(i in 1:nrow(scenarios_sparse)) {
   cat(sprintf("Running s3CA (p = q = %d, number of non-zero elements s = %d)...\n", p_val, s_val))
   
   
-  sparse_res <- sim_s3CA(nt = 200, na = 200, p = p_val, q = p_val, s = s_val, 
-                         mu = 3, theta = 400, eta_true = 2.5, repetition = 50)
+    sparse_res <- sim_s3CA(nt = 200, na = 200, p = p_val, q = p_val, s = s_val,
+                         mu = 3, theta = 400, eta_true = 2.5, repetition = 50,
+                         eta = eta_range)
   
   sparse_res$Method <- "s3CA"
   sparse_res$Dimension_p <- p_val
@@ -338,6 +342,7 @@ summary_table <- final_data %>%
     Mean_Eta = mean(Eta_Est),
     SD_Eta = sd(Eta_Est),
     `Eta_Hat_SD` = sprintf("%.3f (%.3f)", Mean_Eta, SD_Eta),
+    `Eta_Ratio_SD` = sprintf("%.3f (%.3f)", mean(Eta_Ratio), sd(Eta_Ratio)),
     ARI_TargetOnly = mean(ARI_Target),
     ARI_Contrastive = mean(ARI_Contrastive),
     TPR_TargetOnly = mean(TPR_Target, na.rm = TRUE),
@@ -530,11 +535,29 @@ print(ggarrange(p_t,p_a, common.legend = TRUE,legend = "bottom", labels = "AUTO"
 
 ```
 
+
+```{r CRISPER-eta-tuning, eval = TRUE, fig.width=5, fig.height=4, out.width="100%"}
+# Xt and Xa are already centered and scaled above, so cov() inside eta_tuning_general()
+# operates on the correlation matrices, matching cor(Xt) below.
+# This application looks for three contrastive clusters (Upstream, Downstream, Escape),
+# so ckm_cluster = 3 and the default clust_comps = "auto" clusters on ckm_cluster - 1 = 2
+# cPC scores.
+set.seed(111)
+eta_tuning_crispr <- eta_tuning_general(
+  Xt = Xt, Xa = Xa,
+  eta_range = seq(0.5, 12, 0.25),
+  plot = TRUE,
+  sparse_trt = NULL, sparse_ctst = NULL,
+  km_cluster = 2, ckm_cluster = 3
+)
+eta_opt <- eta_tuning_crispr$eta_opt
+cat("Selected eta:", eta_opt, "\n")
+```
+
+
 ```{r CRISPER-cPCA, eval = TRUE, fig.width=5, fig.height=5, out.width="100%"}
 # 4. Run cPCA Algorithm
-# Formula: Eigen decomposition of (Cor(Xt) - eta * Cor(Xa))
-# Eta (η) = 5 (Selected based on hyperparameter tuning to remove cell cycle)
-eta_opt <- 5 
+# Formula: Eigen decomposition of (Cor(Xt) - eta * Cor(Xa)), with eta from the chunk above
 contrastive_cov <- cor(Xt) - eta_opt * cor(Xa)
 cpca_res <- eigen(contrastive_cov)
 
@@ -575,12 +598,12 @@ p_c <- ggplot(cpca_df, aes(x = cPC1, y = cPC2, colour = Functional, shape = Clus
 
 print(p_c)
 
-# ggsave("../inst/SavedFigures/ECCITE_score_tac.pdf", 
-#        plot = ggarrange(p_t+theme(legend.box = "vertical"),
-#                         p_a+theme(legend.box = "vertical"),
-#                         p_c+theme(legend.box = "vertical")+labs(title = "Contrastive"), 
-#                         labels = "AUTO", align = "h", nrow = 1), 
-#        width = 19, height = 8)
+ggsave("../inst/SavedFigures/ECCITE_score_tac.pdf", 
+       plot = ggarrange(p_t+theme(legend.box = "vertical"),
+                        p_a+theme(legend.box = "vertical"),
+                        p_c+theme(legend.box = "vertical")+labs(title = "Contrastive"), 
+                        labels = "AUTO", align = "h", nrow = 1), 
+       width = 19, height = 8)
 
 # ==============================================================================
 # Module 5: Validation 1 - Protein Data (ADT)
@@ -686,6 +709,7 @@ To show that the cPCA results are robust to the choice of the contrastive hyperp
 
 
 ```{r CRISPER-eta-sensitivity, eval = TRUE}
+set.seed(123)
 # 1. Define Candidates for Sensitivity Analysis
 eta_candidates <- c(1, 2, 3, 4, 5, 6, 8, 10) 
 
@@ -808,6 +832,7 @@ In addition, unlike cPCA, which uses a continuous hyperparameter ($\eta$) to wei
 
 
 ```{r CRISPER-comparison-to-simple-alternatives, eval = TRUE, fig.width=10, fig.height=7, out.width="100%"}
+set.seed(123)
 # Define the K values to iterate over
 k_values <- c(1, 2, 5, 10)
 
@@ -1465,8 +1490,25 @@ We apply the s3CA algorithm. The parameter `eta` controls the strength of backgr
 
 
 ```{r s3CA_analysis, eval = TRUE}
-res_s3CA <- cCCA(Xa = Xa, Ya = Ya, Xt = Xt, Yt = Yt, eta = NULL,
+# eta is chosen by the silhouette - ARI criterion. The reference arrangement is the
+# target-only leading pair with km_cluster = 2 (separating the acute DPT-2 samples), and
+# the contrastive arrangement uses ckm_cluster = 3, matching the DPT-2 / DPT-7 / DPT-12-17
+# partition reported below. Sparsity 0.2 is the value used for the analysis itself.
+set.seed(111)
+eta_tuning_broiler <- eta_tuning_bimodal(
+  Xt = Xt, Yt = Yt, Xa = Xa, Ya = Ya,
+  eta_range = seq(0.1, 3, 0.01),
+  plot = TRUE,
+  sparse_ctst = 0.2, sparse_trt = 0.2, sparse_ctrl = 0.2,
+  reference = "target", num_comps = 1,
+  km_cluster = 2, ckm_cluster = 3
+)
+eta_opt_broiler <- eta_tuning_broiler$eta_opt
+cat("Selected eta:", eta_opt_broiler, "\n")
+
+res_s3CA <- cCCA(Xa = Xa, Ya = Ya, Xt = Xt, Yt = Yt, eta = eta_opt_broiler,
                  sparse_ctst = 0.2, sparse_trt = 0.2, sparse_ctrl = 0.2)
+
 
 CCA_ctrl <- res_s3CA$CCA_ctrl
 CCA_trt  <- res_s3CA$CCA_trt
@@ -1517,22 +1559,22 @@ df_ctrl_c1$cluster <- spec_clust(df_ctrl_c1[,1:2], k=3, group = df_ctrl_c1$Time)
 p_trt_c1 <- plot_score_pair(
   df_trt_c1, "CCX1", "CCY1",
   "Treatment pair 1",
-  "Mtb score 1",
-  "Mb score 1"
+  "Metabolome score",
+  "Microbiome score"
 )
 
 p_trt_c2 <- plot_score_pair(
   df_trt_c2, "CCX2", "CCY2",
   "Treatment pair 2",
-  "Mtb score 2",
-  "Mb score 2"
+  "Metabolome score",
+  "Microbiome score"
 )
 
 p_ctrl_c1 <- plot_score_pair(
   df_ctrl_c1, "CCX1", "CCY1",
   "Control pair 1",
-   "Mtb score 1",
-  "Mb score 1"
+   "Metabolome score",
+  "Microbiome score"
 )
 
 # p_motivation <- ggarrange(
@@ -1740,6 +1782,247 @@ print(p_alignment)
 # cat("Saved supplementary alignment heatmap to:", alignment_file, "\n")
 ```
 
+#### D-3 The temporal variation is shared between the two groups
+
+Model (\ref{eq:bi}) represents the temporal variation as a latent factor with a common pair of
+loading vectors and group-specific strength. Development and post-infection recovery are
+continuous processes sampled at four days, which is why a factor rather than four unrelated
+nuisance clusters is used; the four day-means are not collinear, so the choice rests on the
+biology rather than on the rank of the observed structure.
+
+The check below asks whether the treated birds follow the same temporal pattern as the
+untreated birds. Definitions used throughout this subsection:
+
+* **Score pair.** For a loading pair $(\hat\bu,\hat\bv)$, the two-column matrix
+  $(\bX\hat\bu,\ \bY\hat\bv)$ — one score per modality. 
+* **Time profile.** The mean of one modality's score within each of the four days: four numbers
+  per group per modality. Reported per modality, because the two modalities behave differently
+  here and a combined score would average them together.
+* **Shape** $=$ Pearson correlation between the treated and untreated four-number profiles, with
+  *both groups projected onto the same loadings*. Because both profiles use the same loading
+  vector, the arbitrary sign of a singular vector flips both together and the correlation is
+  unchanged, so its sign is meaningful: $+1$ means the two groups rise and fall together over
+  time, $-1$ means they move oppositely, $0$ means unrelated.
+* **Amplitude** $=$ standard deviation of one group's four day-means. Model (\ref{eq:bi}) allows
+  the groups to share the shape while differing in strength ($\tau_\tt$ versus $\tau_\aa$), so
+  shape and amplitude are reported separately.
+* **Data layer.** `Xt`, `Xa`, `Yt`, `Ya` are centered and scaled *within each group*, so these
+  values are relative to that group's own average. They may be compared in shape across days,
+  not in level between groups. All loadings come from the sparse fit (`sumabs = 0.2`).
+* Profiles use only four points, so shape is reported with a bootstrap interval obtained by
+  resampling samples within each day.
+
+```{r broiler_shared_trajectory, eval = TRUE}
+dpt_levels <- c("DPT-2", "DPT-7", "DPT-12", "DPT-17")
+time_t <- factor(as.character(meta_t$Time), levels = dpt_levels)
+time_a <- factor(as.character(meta_a$Time), levels = dpt_levels)
+
+## every loading pair below comes from the sparse fit computed in `s3CA_analysis`
+loadings <- list(
+  "Untreated pair 1"   = list(u = CCA_ctrl$u[, 1], v = CCA_ctrl$v[, 1]),
+  "Treatment pair 1"   = list(u = CCA_trt$u[, 1],  v = CCA_trt$v[, 1]),
+  "Treatment pair 2"   = list(u = CCA_trt$u[, 2],  v = CCA_trt$v[, 2]),
+  "Contrastive pair 1" = list(u = CCA_ctst$u[, 1], v = CCA_ctst$v[, 1])
+)
+
+## day-means of one modality's score, for each group, on the SAME loading vector
+profiles <- function(w, Dt, Da) {
+  list(treated   = tapply(drop(Dt %*% w), time_t, mean)[dpt_levels],
+       untreated = tapply(drop(Da %*% w), time_a, mean)[dpt_levels])
+}
+
+set.seed(2024)
+boot_shape <- function(w, Dt, Da) {
+  st <- drop(Dt %*% w); sa <- drop(Da %*% w)
+  r <- replicate(2000, {
+    it <- unlist(lapply(split(seq_along(time_t), time_t), function(i) sample(i, length(i), TRUE)))
+    ia <- unlist(lapply(split(seq_along(time_a), time_a), function(i) sample(i, length(i), TRUE)))
+    suppressWarnings(cor(tapply(st[it], time_t[it], mean)[dpt_levels],
+                         tapply(sa[ia], time_a[ia], mean)[dpt_levels]))
+  })
+  quantile(r, c(0.025, 0.975), na.rm = TRUE)
+}
+
+shared_table <- do.call(rbind, lapply(names(loadings), function(nm) {
+  u <- loadings[[nm]]$u; v <- loadings[[nm]]$v
+  pm <- profiles(u, Xt, Xa)      # metabolome
+  pb <- profiles(v, Yt, Ya)      # microbiome
+  cim <- boot_shape(u, Xt, Xa); cib <- boot_shape(v, Yt, Ya)
+  data.frame(
+    loadings       = nm,
+    cor_mtb      = cor(pm$treated, pm$untreated),
+    mtb_CI         = sprintf("[%.2f, %.2f]", cim[1], cim[2]),
+    cor_mb       = cor(pb$treated, pb$untreated),
+    mb_CI          = sprintf("[%.2f, %.2f]", cib[1], cib[2]),
+    corsd_mb_treated = sd(pb$treated),
+    corsd_mb_untrt   = sd(pb$untreated)
+  )
+}))
+print(knitr::kable(shared_table, digits = 3, row.names = FALSE, format = "markdown",
+      caption = "Do the two groups follow the same time profile along the same loadings? Reported separately for each modality."))
+## Reference distribution. A shape correlation is only interpretable against what an
+## uninformative direction would give, and that baseline differs between the modalities.
+## Here 300 random loading vectors are drawn per modality and put through the same
+## projection, day-averaging and correlation.
+shape_of <- function(w, Dt, Da) {
+  pr <- profiles(w, Dt, Da)
+  suppressWarnings(cor(pr$treated, pr$untreated))
+}
+set.seed(1)
+null_mtb <- replicate(300, shape_of(rnorm(ncol(Xt)), Xt, Xa))
+null_mb  <- replicate(300, replicate(1, shape_of(rnorm(ncol(Yt)), Yt, Ya)))
+
+## The baseline is set by how many individual features already agree between the groups:
+## a random weighted average of features that mostly agree will itself agree.
+feature_agreement <- function(Dt, Da) {
+  day_profile <- function(D, f) {
+    M <- t(sapply(seq_len(ncol(D)), function(j) tapply(D[, j], f, mean)[dpt_levels]))
+    t(scale(t(M), scale = FALSE))
+  }
+  Mt <- day_profile(Dt, time_t); Ma <- day_profile(Da, time_a)
+  r  <- sapply(seq_len(nrow(Mt)), function(i) suppressWarnings(cor(Mt[i, ], Ma[i, ])))
+  c(median = median(r, na.rm = TRUE), pct_positive = 100 * mean(r > 0, na.rm = TRUE))
+}
+ag_mtb <- feature_agreement(Xt, Xa); ag_mb <- feature_agreement(Yt, Ya)
+
+null_table <- data.frame(
+  modality          = c("Metabolome", "Microbiome"),
+  null_median_shape = c(median(null_mtb, na.rm = TRUE), median(null_mb, na.rm = TRUE)),
+  null_pct_above_07 = c(100 * mean(null_mtb > 0.7, na.rm = TRUE),
+                        100 * mean(null_mb  > 0.7, na.rm = TRUE)),
+  feature_median_r  = c(ag_mtb["median"], ag_mb["median"]),
+  feature_pct_agree = c(ag_mtb["pct_positive"], ag_mb["pct_positive"])
+)
+print(knitr::kable(null_table, digits = 3, row.names = FALSE, format = "markdown",
+      caption = "Reference distribution. Columns 2-3: shape correlation from 300 random loading vectors. Columns 4-5: correlation between the two groups' four-day profiles for each feature separately, and the percentage of features whose profiles agree in direction."))
+
+```
+
+The metabolome profile is similar between the groups under every loading pair, so on its own it
+does not identify which component carries shared variation. The microbiome profile discriminates:
+only the second treatment pair shows the two groups moving together, which identifies it as the
+component carrying the shared temporal factor.
+
+#### D-4 Is the DPT-7 distinction specific to the treated birds?
+
+Two comparisons must be kept apart.
+
+* **DPT-2 versus the later days** is *shared*: the acute phase differs from later days in every
+  bird. A component separating those is not evidence of a treatment effect.
+* **DPT-7 versus DPT-12/17, among post-acute samples only**, is the finding. For it to be
+  treatment-specific it must be strong in the treated birds and weak in the untreated birds
+  *along the same loadings*.
+
+**ARI** compares a k-means partition of the two-column score pair $(\bX\hat\bu, \bY\hat\bv)$ with
+the stated day grouping. It has expected value $0$ for unrelated partitions and $1$ for perfect
+agreement, and is computed separately within each group against that group's own day labels. Day
+labels are never used in fitting, so a high ARI is not circular.
+
+```{r broiler_attribution_table, eval = TRUE}
+group3 <- function(x) ifelse(as.character(x) %in% c("DPT-12", "DPT-17"),
+                             "DPT-12/17", as.character(x))
+later_t <- as.character(time_t) != "DPT-2"
+later_a <- as.character(time_a) != "DPT-2"
+
+attribution_table <- do.call(rbind, lapply(names(loadings), function(nm) {
+  u <- loadings[[nm]]$u; v <- loadings[[nm]]$v
+  pair_t <- cbind(Xt %*% u, Yt %*% v)          # two columns, as everywhere else
+  pair_a <- cbind(Xa %*% u, Ya %*% v)
+  data.frame(
+    loadings       = nm,
+    dpt7_treated   = spec_clust(pair_t[later_t, ], k = 2,
+                                group = group3(time_t[later_t]), seed = 1)$ari,
+    dpt7_untreated = spec_clust(pair_a[later_a, ], k = 2,
+                                group = group3(time_a[later_a]), seed = 1)$ari
+  )
+}))
+attribution_table$gap <- attribution_table$dpt7_treated - attribution_table$dpt7_untreated
+print(knitr::kable(attribution_table, digits = 3, row.names = FALSE, format = "markdown",
+      caption = "Separation of DPT-7 from DPT-12/17 within each group. A large gap means the distinction exists in the treated birds but not the untreated ones."))
+
+      
+```
+
+The second treatment pair separates the later days in both groups, so a treatment-only analysis
+cannot attribute that separation to the treatment. The leading contrastive pair separates them in
+the treated birds only.
+
+#### D-5 What the contrastive component describes: a slowed transition
+
+Chunk D-3 showed that the two groups' metabolome profiles are highly correlated along the
+contrastive loadings (0.921). That says they change in the same *direction*. It does not say they
+change at the same *time*, because a correlation is invariant to how each profile is centred and
+scaled. The statistic below isolates the timing.
+
+**Progression fraction** at day $t$, computed per group as
+$(\bar s(t)-\bar s(\text{DPT-2}))/(\bar s(\text{DPT-17})-\bar s(\text{DPT-2}))$, where $\bar s(t)$
+is that group's mean metabolome score on day $t$. It equals 0 at DPT-2 and 1 at DPT-17 by
+construction, so only the intermediate days carry information. Multiplying the score by any
+constant leaves it unchanged, so unlike the clustering ARI it does not depend on how the score
+columns are scaled.
+
+**Why this explains the clustering.** A day forms its own cluster only if it is far from *both*
+endpoints; on a 0-1 scale, 0.5 is maximally distinct and either extreme is not distinct at all.
+The `distance_to_nearer_end` column below is $\min(p, 1-p)$ and is the quantity that matters.
+
+**Metabolome only.** No progression fraction is reported for the microbiome, because the two
+groups move in opposite directions there (shape correlation $-0.928$). The denominator
+$\bar s(\text{DPT-17})-\bar s(\text{DPT-2})$ would then be positive in one group and negative in
+the other, both groups would rescale to 0 at DPT-2 and 1 at DPT-17, and the reversal would be
+hidden rather than measured. The microbiome is shown instead in the two-group heatmap of
+Section F, where the opposing directions are visible directly.
+
+```{r broiler_delayed_transition, eval = TRUE}
+u_ctst <- CCA_ctst$u[, 1]; v_ctst <- CCA_ctst$v[, 1]
+
+prog <- function(score, tvec) {
+  m <- tapply(score, tvec, mean)[dpt_levels]
+  (m - m["DPT-2"]) / (m["DPT-17"] - m["DPT-2"])
+}
+p_t <- prog(drop(Xt %*% u_ctst), time_t)
+p_a <- prog(drop(Xa %*% u_ctst), time_a)
+
+progression <- data.frame(
+  group                   = c("Treated", "Untreated"),
+  rbind(round(p_t, 3), round(p_a, 3)),
+  distance_to_nearer_end  = round(c(min(p_t["DPT-7"], 1 - p_t["DPT-7"]),
+                                    min(p_a["DPT-7"], 1 - p_a["DPT-7"])), 3),
+  check.names = FALSE
+)
+print(knitr::kable(progression, row.names = FALSE, format = "markdown",
+      caption = "Fraction of each group's own DPT-2 to DPT-17 metabolome change completed by each day. The last column is the DPT-7 distance to the nearer endpoint: larger means DPT-7 is more separable from both the acute and the later days."))
+
+## The same question at the feature level for the microbiome: on each selected taxon, is DPT-7
+## nearer to DPT-2 or to DPT-12 within each group? Values are per-group standardized, so they
+## are comparable in shape across days but not in level between groups.
+sel_mb <- {i <- which(v_ctst != 0); i[order(abs(v_ctst[i]), decreasing = TRUE)][1:10]}
+day_mean <- function(D, fac, idx) sapply(dpt_levels,
+  function(d) colMeans(D[fac == d, idx, drop = FALSE]))
+Mt_mb <- day_mean(Yt, time_t, sel_mb); Ma_mb <- day_mean(Ya, time_a, sel_mb)
+
+microbe_tbl <- data.frame(
+  microbe = substr(colnames(Yt)[sel_mb], 1, 32),
+  loading = round(v_ctst[sel_mb], 3),
+  round(Mt_mb, 2), round(Ma_mb, 2),
+  ## which day is DPT-7 nearer to, within each group?
+  trt_DPT7_nearer = ifelse(abs(Mt_mb[, "DPT-7"] - Mt_mb[, "DPT-2"]) <
+                           abs(Mt_mb[, "DPT-7"] - Mt_mb[, "DPT-12"]), "DPT-2", "DPT-12"),
+  ctl_DPT7_nearer = ifelse(abs(Ma_mb[, "DPT-7"] - Ma_mb[, "DPT-2"]) <
+                           abs(Ma_mb[, "DPT-7"] - Ma_mb[, "DPT-12"]), "DPT-2", "DPT-12"),
+  check.names = FALSE
+)
+names(microbe_tbl)[3:6] <- paste0("trt_", dpt_levels)
+names(microbe_tbl)[7:10] <- paste0("ctl_", dpt_levels)
+print(knitr::kable(microbe_tbl, row.names = FALSE, format = "markdown",
+      caption = "Selected microbial features. The last two columns ask, within each group, whether DPT-7 sits nearer to the acute day or to DPT-12."))
+```
+
+In the treated birds DPT-7 sits near the middle of the trajectory and is therefore far from both
+ends; in the untreated birds it has already arrived close to the later days. This is why DPT-7
+forms a separate cluster in one group and not the other. The antibiotic does not change where the
+metabolome ends up, only how quickly it gets there.
+
+
 ### E. Contrastive target structure
 
 The contrastive analysis retains the large acute DPT-2 structure while reducing cross-modal variation represented in the untreated controls. The leading contrastive score pair can therefore place greater emphasis on post-acute treatment structure, including the separation of DPT-7 from DPT-12/17.
@@ -1757,8 +2040,8 @@ p_ctst <- plot_score_pair(
   df_ctst_c1,
   "cCCX1", "cCCY1",
   "",
-  "Contrastive mtb score 1",
-  "Contrastive mb score 1"
+  "Contrastive metabolome score",
+  "Contrastive microbiome score"
 )
 
 print(p_ctst)
@@ -1942,6 +2225,83 @@ grid.draw(combined_heatmap)
 
 **Interpretation.** These heatmaps describe how the selected features contribute to the contrastive temporal organization. They should not be interpreted as causal microbe–metabolite interactions. The main result is that the selected metabolites and microbial features jointly distinguish the acute, intermediate, and later treatment states.
 
+```{r broiler_two_group_heatmap, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
+## Same features as the contrastive heatmap, but shown in BOTH groups. Rows are z-scored
+## across all eight columns, so each row describes a temporal pattern and the two blocks are
+## directly comparable; absolute levels are not, because the two groups were scaled separately.
+time_order <- c("DPT-2", "DPT-7", "DPT-12", "DPT-17")
+
+## day means for one group, unscaled
+day_means <- function(D, meta, features) {
+  ids <- intersect(rownames(D), rownames(meta))
+  tm  <- factor(as.character(meta[ids, "Time"]), levels = time_order)
+  out <- sapply(time_order, function(d)
+    colMeans(D[ids[tm == d], features, drop = FALSE], na.rm = TRUE))
+  matrix(out, nrow = length(features), dimnames = list(features, time_order))
+}
+
+## treated and untreated blocks side by side, row z-scored across all eight columns
+make_temporal_matrix_2group <- function(D_t, meta_t, D_a, meta_a, features) {
+  mat <- cbind(day_means(D_t, meta_t, features), day_means(D_a, meta_a, features))
+  colnames(mat) <- c(paste0("Treated\n",   time_order),
+                   paste0("Untreated\n", time_order))
+  m <- t(scale(t(mat)))
+  m[!is.finite(m)] <- 0
+  m
+}
+
+mat_mtb_2g <- make_temporal_matrix_2group(
+  Xt, meta_t, Xa, meta_a, names(mtb_loadings_ctst))
+mat_mb_2g <- make_temporal_matrix_2group(
+  Yt, meta_t, Ya, meta_a, names(mb_loadings_ctst))
+
+ph_mtb_2g <- pheatmap(
+  mat_mtb_2g, cluster_rows = TRUE, cluster_cols = FALSE, gaps_col = 4,
+  color = colorRampPalette(c("white", "navy"))(50),
+  labels_row = wrap_labels(rownames(mat_mtb_2g), width = 28),
+  main = "Contrastive C1 - Metabolome",
+  fontsize_row = 11, fontsize_col = 10, angle_col = 0,
+  border_color = NA, legend = TRUE, silent = TRUE
+)
+
+ph_mb_2g <- pheatmap(
+  mat_mb_2g, cluster_rows = TRUE, cluster_cols = FALSE, gaps_col = 4,
+  color = colorRampPalette(c("white", "firebrick3"))(50),
+  labels_row = wrap_labels(rownames(mat_mb_2g), width = 28),
+  main = "Contrastive C1 - Microbiome",
+  fontsize_row = 11, fontsize_col = 10, angle_col = 0,
+  border_color = NA, legend = TRUE, silent = TRUE
+)
+
+combined_2g <- arrangeGrob(ph_mtb_2g$gtable, ph_mb_2g$gtable, ncol = 2)
+grid.newpage()
+grid.draw(combined_2g)
+
+## how far has each group moved by DPT-7, relative to its own DPT-2 state?
+cat("\nmean |treated DPT-7 - untreated DPT-2| :",
+    sprintf("%.3f", mean(abs(mat_mtb_2g[, 2] - mat_mtb_2g[, 5]))), "\n")
+cat("mean |treated DPT-7 - untreated DPT-7| :",
+    sprintf("%.3f", mean(abs(mat_mtb_2g[, 2] - mat_mtb_2g[, 6]))), "\n")
+
+# pdf(file.path("../inst/SavedFigures", "Chicken_contrastive_feature_heatmaps_2group.pdf"),
+#     width = 14, height = 6.5)
+# grid.newpage(); grid.draw(combined_2g); dev.off()
+```
+
+**Interpretation.** Read each panel by comparing the two blocks column by column. In the
+metabolome the treated block turns over one column later than the untreated block: the top row
+group is dark at both `Trt DPT-2` and `Trt DPT-7` but only at `Ctl DPT-2`, and the bottom row
+group shows the same offset inverted. The slowdown is partial rather than a shift by a full
+sampling interval, since the treated DPT-7 profile differs from the untreated DPT-2 profile by
+1.02 on this scale against 0.86 from the untreated DPT-7 profile.
+
+The microbiome panel contains two kinds of row. Four *Citrobacter* taxa show the same one-column
+offset as the metabolome, pale at `Trt DPT-2` and `Trt DPT-7` and dark from `Trt DPT-12`, while
+in the untreated block only `Ctl DPT-2` is distinct; the table in D-5 records this as DPT-7 lying
+nearer the acute day in the treated birds and nearer DPT-12 in the untreated ones. These are the
+rows that make the microbiome contribute to the DPT-7 separation. The remaining taxa, including
+the normal-flora species, change in opposite directions in the two groups and do not show the
+offset.
 
 ```{r trt_feature_heatmaps, eval = TRUE, fig.width=14, fig.height=6.5, out.width="100%"}
 ## Treatment-only component 1

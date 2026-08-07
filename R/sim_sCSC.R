@@ -30,6 +30,10 @@
 #' @param Sigma_a the error covariance matrix in ancillary group, if is NULL, use standard deviation specified and assume uncorrelation.
 #' @param eta if eta is a vector, eta_tuning algorithm will be called to select optimal eta; if a number, eta will be used.
 #' @param repetition number of replications of the simulation.
+#' @param clust_comps number of leading component scores used for kmeans clustering, both inside
+#'   \code{\link{eta_tuning_general}} and for the reported ARIs. \code{"auto"} applies the
+#'   \code{ckm_cluster - 1} rule, which is 1 for the two interesting clusters in this design.
+#' @param nstart number of random starts passed to \code{\link[stats]{kmeans}}.
 #' @export
 #' @return A data frame containing the selected optimal eta, the four metrics values.
 #' @examples
@@ -38,7 +42,10 @@ sim_sCSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
                     mu1, mu2, theta1, theta2, p1, p2, p3,
                     sigma_t = 1, sigma_a = 1,
                     Sigma_t = NULL, Sigma_a = NULL,
-                    eta, repetition = 10){
+                    eta, repetition = 10, clust_comps = "auto", nstart = 25){
+
+  ## ckm_cluster is 2 in this design, so the "auto" rule gives 1. A numeric value is used as is.
+  if(identical(clust_comps, "auto")){clust_comps <- 1}
 
   if(length(eta) > 1){
     eta_range <- eta
@@ -92,7 +99,8 @@ sim_sCSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
                                     num_comps = 20,
                                     km_cluster = 2,
                                     ckm_cluster = 2,
-                                    plot = TRUE)$eta_opt
+                                    clust_comps = clust_comps, nstart = nstart,
+                                    plot = FALSE)$eta_opt
       eta_opt_set <- c(eta_opt_set, eta_use)
       cat(paste("Use optimal eta:", eta_use, "\n"))
     }
@@ -100,23 +108,28 @@ sim_sCSC <- function(n11, n12, n21, n22, m1tilde, m2tilde,
 
 
     # scPCA note using sumabsv and sumabsu is equivalent to using sumabs = sumabsv/sqrt(dimension) which is in cPCA()
-    cV <- PMD(cov(Xt)-eta_use*cov(Xa), K=20, type = "standard", sumabsv = sqrt(p1), sumabsu = sqrt(p1), center = FALSE, trace = FALSE)$v
-    cU <- PMD(cov(Xt)-eta_use*cov(Xa), K=20, type = "standard", sumabsv = sqrt(p1), sumabsu = sqrt(p1), center = FALSE, trace = FALSE)$u
-    cPC <- Xt%*%cU[,which.max(diag(t(cU)%*%cV))]
+    # u and v come from a single decomposition
+    pmd_ctst <- PMD(cov(Xt)-eta_use*cov(Xa), K=20, type = "standard", sumabsv = sqrt(p1), sumabsu = sqrt(p1), center = FALSE, trace = FALSE)
+    cV <- pmd_ctst$v
+    cU <- pmd_ctst$u
+    # keep the clust_comps components with the best u/v agreement
+    cPC <- Xt%*%cU[, order(diag(t(cU)%*%cV), decreasing = TRUE)[1:clust_comps], drop = FALSE]
 
     Ut <- PMD(cov(Xt), K=2, type = "standard", sumabsv = sqrt(p2), sumabsu = sqrt(p2), center = FALSE, trace = FALSE)$v
     PCt <- Xt%*%Ut[,1:2]
 
     # kmeans clustering using PCs
-    ARI_trt_nuisance <- c(ARI_trt_nuisance, spec_clust(PCt[,1], group = covariates_t$nuisance))
-    ARI_trt_interesting <- c(ARI_trt_interesting, spec_clust(PCt[,1], group = covariates_t$interesting))
-    ARI_ctst_nuisance <- c(ARI_ctst_nuisance, spec_clust(cPC[,1], group = covariates_t$nuisance))
-    ARI_ctst_interesting <- c(ARI_ctst_interesting, spec_clust(cPC[,1], group = covariates_t$interesting))
+    PCt_use <- PCt[, 1:clust_comps, drop = FALSE]
+    cPC_use <- cPC[, 1:clust_comps, drop = FALSE]
+    ARI_trt_nuisance <- c(ARI_trt_nuisance, spec_clust(PCt_use, group = covariates_t$nuisance)$ari)
+    ARI_trt_interesting <- c(ARI_trt_interesting, spec_clust(PCt_use, group = covariates_t$interesting)$ari)
+    ARI_ctst_nuisance <- c(ARI_ctst_nuisance, spec_clust(cPC_use, group = covariates_t$nuisance)$ari)
+    ARI_ctst_interesting <- c(ARI_ctst_interesting, spec_clust(cPC_use, group = covariates_t$interesting)$ari)
 
   }
   return(data.frame(ARI_ctst_interesting = ARI_ctst_interesting,
                     ARI_ctst_nuisance = ARI_ctst_nuisance,
                     ARI_trt_interesting = ARI_trt_interesting,
                     ARI_trt_nuisance = ARI_trt_nuisance,
-                    eta = eta_opt_set))
+                    eta = if(length(eta_opt_set)) eta_opt_set else rep(eta, repetition)))
 }

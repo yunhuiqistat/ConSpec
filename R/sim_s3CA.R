@@ -15,8 +15,15 @@
 #' @param theta Numeric. Variance of the dominant continuous nuisance factor (default 80).
 #' @param eta_true Numeric. True scaling parameter for the nuisance variation between target and ancillary groups (default 2.5).
 #' @param repetition Integer. Number of simulation repetitions (default 50).
+#' @param eta Contrast parameter rule. A numeric vector of length > 1 is the candidate grid
+#'   handed to \code{\link{eta_tuning_bimodal}}, which is the default. A single number is used
+#'   directly. \code{"ratio"} instead uses the spectral-scale estimator
+#'   \eqn{\lambda_1(S_t)/\lambda_1(S_a)}, which is recorded in the \code{Eta_Ratio} column of
+#'   the output either way.
+#' @param km_cluster Integer. Number of reference (nuisance) clusters used by the tuning algorithm.
+#' @param ckm_cluster Integer. Number of contrastive clusters used by the tuning algorithm.
 #'
-#' @return A data frame with columns: Iteration, ARI_Target, ARI_Contrastive, TPR_Target, FPR_Target, TPR_Contrastive, FPR_Contrastive, Eta_Est.
+#' @return A data frame with columns: Iteration, ARI_Target, ARI_Contrastive, TPR_Target, FPR_Target, TPR_Contrastive, FPR_Contrastive, Eta_Est, Eta_Ratio.
 #'
 #' @importFrom mclust adjustedRandIndex
 #' @importFrom stats cov rnorm model.matrix kmeans
@@ -24,10 +31,16 @@
 #' @export
 #' @examples
 #' # See vignettes/ContrastiveSpectralClustering.Rmd for example usage.
-sim_s3CA <- function(nt = 200, na = 200, p = 300, q = 300, s = 20, mu = 1.0, 
-                             theta = 80, eta_true = 2.5, repetition = 50){
-  
+sim_s3CA <- function(nt = 200, na = 200, p = 300, q = 300, s = 20, mu = 1.0,
+                             theta = 80, eta_true = 2.5, repetition = 50,
+                             eta = seq(0.1, 6, 0.1), km_cluster = 2, ckm_cluster = 2){
+
   res_df <- data.frame()
+
+  # true sparsity handed to PMD. PMD's scalar `sumabs` maps to sumabsu = sumabs*sqrt(nrow)
+  # and sumabsv = sumabs*sqrt(ncol); with p == q this reproduces sumabsu = sumabsv = sqrt(s),
+  # i.e. exactly the true sparsity used for the analyses below.
+  sumabs_true <- sqrt(s / p)
   
   M <- matrix(0, nrow = 2, ncol = p)
   N <- matrix(0, nrow = 2, ncol = q)
@@ -55,9 +68,22 @@ sim_s3CA <- function(nt = 200, na = 200, p = 300, q = 300, s = 20, mu = 1.0,
     Xt <- scale(Xt, scale=FALSE); Yt <- scale(Yt, scale=FALSE)
     Xa <- scale(Xa, scale=FALSE); Ya <- scale(Ya, scale=FALSE)
     
-    eta_est <- svd(cov(Xt, Yt))$d[1] / svd(cov(Xa, Ya))$d[1]
-    
-    sCCA_trt <- PMD(cov(Xt, Yt), type = "standard", center = FALSE, 
+    # spectral-scale estimator, recorded in every run for reference
+    eta_ratio <- svd(cov(Xt, Yt))$d[1] / svd(cov(Xa, Ya))$d[1]
+
+    # contrast parameter actually used
+    if(identical(eta, "ratio")){eta_est <- eta_ratio}
+    else if(length(eta) > 1){
+      eta_est <- eta_tuning_bimodal(Xt = Xt, Yt = Yt, Xa = Xa, Ya = Ya,
+                                    eta_range = eta, plot = FALSE,
+                                    sparse_ctst = sumabs_true, sparse_trt = sumabs_true,
+                                    reference = "target", num_comps = 1,
+                                    km_cluster = km_cluster,
+                                    ckm_cluster = ckm_cluster)$eta_opt
+    }
+    else{eta_est <- eta}
+
+    sCCA_trt <- PMD(cov(Xt, Yt), type = "standard", center = FALSE,
                     sumabsu=sqrt(s), sumabsv=sqrt(s), K=1, trace=FALSE)
     u_trt <- as.numeric(sCCA_trt$u); v_trt <- as.numeric(sCCA_trt$v)
     
@@ -83,7 +109,7 @@ sim_s3CA <- function(nt = 200, na = 200, p = 300, q = 300, s = 20, mu = 1.0,
       ARI_Target = ari_trt, ARI_Contrastive = ari_ctst,
       TPR_Target = tpr_trt, FPR_Target = fpr_trt,
       TPR_Contrastive = tpr_ctst, FPR_Contrastive = fpr_ctst,
-      Eta_Est = eta_est
+      Eta_Est = eta_est, Eta_Ratio = eta_ratio
     ))
   }
   return(res_df)
