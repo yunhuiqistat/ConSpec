@@ -491,27 +491,52 @@ pca_a <- prcomp(Xa, center = TRUE, scale. = TRUE)
 
 plot_df_t <- cbind(as.data.frame(pca_t$x), meta_t)
 plot_df_a <- cbind(as.data.frame(pca_a$x), meta_a)
+## Target-only panel shows only its shape legend (sgRNA target: the 5 knockout
+## genes); its own Phase color legend is suppressed here because Phase is already
+## shown, alongside the NT shape, in the ancillary panel below -- avoids repeating
+## Phase in both panels and avoids merging all 6 shape levels into one scale.
 p_t <- ggplot(plot_df_t, aes(x = PC1, y = PC2, color = Phase, shape = Treatment_Gene)) +
   geom_point(alpha = 0.6, size = 2) +
   theme_bw() +
-  labs(title = "Target-only", shape = "Perturbed genes")+
+  labs(title = "Target-only", shape = "sgRNA target")+
+  guides(color = "none") +
   theme(panel.grid = element_blank(),
         text = element_text(size = 14),  # Adjust text size
         axis.title = element_text(size = 16),  # Adjust axis title size
         axis.text = element_text(size = 12),
         legend.position = "bottom")
 
-p_a <- ggplot(plot_df_a, aes(x = PC1, y = PC2, color = Phase)) +
-  geom_point(alpha = 0.6, size = 2, shape = 6) +
+## PC1 and PC2 signs are each arbitrary for an independently-fit PCA (pca_a is its
+## own eigendecomposition of Xa, unrelated to pca_t's), so reflecting either or both
+## does not change any variance, correlation, or clustering structure -- it only
+## changes which direction reads as positive. Both are flipped here (a 180-degree
+## rotation) so the ancillary panel's orientation visually aligns with the target
+## panel; the target panel is left as-is, since only one of the two panels needs to
+## be flipped to align them, not both.
+plot_df_a$PC1 <- -plot_df_a$PC1
+plot_df_a$PC2 <- -plot_df_a$PC2
+
+## Ancillary panel carries both of its legends -- the NT shape and Phase (color) --
+## side by side in one row (legend.box = "horizontal"), since this is the only panel
+## that needs to show Phase at all. Full name in the legend key, matching the
+## manuscript's own phrasing ("non-targeting (NT) sgRNAs"). guides(..., order = )
+## puts the shape legend (NT) on the left and the color legend (Phase) on the right.
+
+p_a <- ggplot(plot_df_a, aes(x = PC1, y = PC2, color = Phase, shape = "Non-targeting")) +
+  geom_point(alpha = 0.6, size = 2) +
   theme_bw() +
-    labs(title = "Ancillary-only")+
+    labs(title = "Ancillary-only", shape = NULL)+
+  scale_shape_manual(values = c("Non-targeting" = 6)) +
+  guides(shape = guide_legend(order = 1), color = guide_legend(order = 2)) +
   theme(panel.grid = element_blank(),
         text = element_text(size = 14),  # Adjust text size
         axis.title = element_text(size = 16),  # Adjust axis title size
         axis.text = element_text(size = 12),
-        legend.position = "bottom")
+        legend.position = "bottom",
+        legend.box = "horizontal")
 
-print(ggarrange(p_t,p_a, common.legend = TRUE,legend = "bottom", labels = "AUTO", align = "h"))
+print(ggarrange(p_t,p_a, common.legend = FALSE,legend = "bottom", labels = "AUTO", align = "h"))
+
 # p_motivation_1 <- ggplot(plot_df_t, aes(x = PC1, y = PC2, color = Phase, shape = Treatment_Gene)) +
 #   geom_point(alpha = 0.6, size = 2) +
 #   theme_bw() +
@@ -527,9 +552,9 @@ print(ggarrange(p_t,p_a, common.legend = TRUE,legend = "bottom", labels = "AUTO"
 #     shape = guide_legend(nrow = 1, byrow = TRUE, order = 2)
 #   )
 
-# ggsave("../inst/SavedFigures/ECCITE_score_ta.pdf", 
-#        plot = ggarrange(p_t,p_a, common.legend = TRUE,legend = "bottom", labels = "AUTO", align = "h"), 
-#        width = 10, height = 5)
+# ggsave("inst/SavedFigures/ECCITE_score_ta.pdf", 
+#        plot = ggarrange(p_t,p_a, common.legend = FALSE,legend = "bottom", labels = "AUTO", align = "h"), 
+#        width = 13, height = 5)
 
 
 
@@ -586,7 +611,7 @@ cpca_df <- cpca_df %>%
 
 # Visualization: The cPCA Space
 p_c <- ggplot(cpca_df, aes(x = cPC1, y = cPC2, colour = Functional, shape = Clusters)) +
-  geom_point(alpha = 0.6, size = 2) +
+  geom_point(alpha = 0.6, size = 2.5) +
   theme_bw() +
   scale_color_aaas()+
   labs(shape = "Clusters", colour = "Functional")+
@@ -598,12 +623,12 @@ p_c <- ggplot(cpca_df, aes(x = cPC1, y = cPC2, colour = Functional, shape = Clus
 
 print(p_c)
 
-ggsave("../inst/SavedFigures/ECCITE_score_tac.pdf", 
-       plot = ggarrange(p_t+theme(legend.box = "vertical"),
-                        p_a+theme(legend.box = "vertical"),
-                        p_c+theme(legend.box = "vertical")+labs(title = "Contrastive"), 
-                        labels = "AUTO", align = "h", nrow = 1), 
-       width = 19, height = 8)
+# ggsave("../inst/SavedFigures/ECCITE_score_tac.pdf", 
+#        plot = ggarrange(p_t+theme(legend.box = "vertical"),
+#                         p_a+theme(legend.box = "vertical"),
+#                         p_c+theme(legend.box = "vertical")+labs(title = "Contrastive"), 
+#                         labels = "AUTO", align = "h", nrow = 1), 
+#        width = 19, height = 8)
 
 # ==============================================================================
 # Module 5: Validation 1 - Protein Data (ADT)
@@ -695,11 +720,11 @@ print(p_val_mixscape)
 #                         labels = "AUTO", align = "h", nrow = 1), 
 #        width = 15, height = 8)
 
-# ggsave("../inst/SavedFigures/ECCITE_c_val.pdf", 
+# ggsave("inst/SavedFigures/ECCITE_c_val.pdf", 
 #        plot = ggarrange(p_c+theme(legend.box = "vertical"),
 #         p_val_protein, p_val_mixscape,  
 #                         labels = "AUTO", align = "h", nrow = 1), 
-#        width = 15, height = 8)
+#        width = 15, height = 6)
 ```
 
 
@@ -1065,7 +1090,8 @@ plot_score_pair <- function(
     title,
     x_label,
     y_label,
-    show_centroid_labels = TRUE
+    show_centroid_labels = TRUE,
+    show_centroids = TRUE
 ) {
 
   ## Check whether clustering assignments are available
@@ -1131,42 +1157,45 @@ plot_score_pair <- function(
       )
   }
 
-  p <- p +
-    ## Light gray dashed temporal trajectory
-    ggplot2::geom_path(
-      data = centroid_df,
-      ggplot2::aes(
-        x = centroid_x,
-        y = centroid_y,
-        group = 1
-      ),
-      inherit.aes = FALSE,
-      color = "grey55",
-      linewidth = 0.7,
-      linetype = "dashed",
-      alpha = 0.9,
-      arrow = grid::arrow(
-        type = "closed",
-        length = grid::unit(0.12, "inches")
+  if (show_centroids) {
+    p <- p +
+      ## Light gray dashed temporal trajectory
+      ggplot2::geom_path(
+        data = centroid_df,
+        ggplot2::aes(
+          x = centroid_x,
+          y = centroid_y,
+          group = 1
+        ),
+        inherit.aes = FALSE,
+        color = "grey55",
+        linewidth = 0.7,
+        linetype = "dashed",
+        alpha = 0.9,
+        arrow = grid::arrow(
+          type = "closed",
+          length = grid::unit(0.12, "inches")
+        )
+      ) +
+
+      ## Open-circle centroids
+      ggplot2::geom_point(
+        data = centroid_df,
+        ggplot2::aes(
+          x = centroid_x,
+          y = centroid_y,
+          fill = Time_plot
+        ),
+        inherit.aes = FALSE,
+        shape = 21,
+        size = 4.2,
+        stroke = 1,
+        color = "grey25",
+        show.legend = FALSE
       )
-    ) +
+  }
 
-    ## Open-circle centroids
-    ggplot2::geom_point(
-      data = centroid_df,
-      ggplot2::aes(
-        x = centroid_x,
-        y = centroid_y,
-        fill = Time_plot
-      ),
-      inherit.aes = FALSE,
-      shape = 21,
-      size = 4.2,
-      stroke = 1,
-      color = "grey25",
-      show.legend = FALSE
-    ) +
-
+  p <- p +
     ggplot2::scale_color_brewer(
       palette = "Set1",
       drop = FALSE
@@ -1528,8 +1557,7 @@ The score plots may optionally combine DPT-12 and DPT-17 into a single late labe
 ```{r, eval = TRUE}
 merge_late <- FALSE
 ```
-
-```{r motivation_scores, eval = TRUE, fig.width=15, fig.height=5, out.width="100%"}
+```{r motivation_acute, eval = TRUE, fig.width=7.5, fig.height=6, out.width="65%"}
 df_trt_c1 <- score_frame(
   Xt, Yt, CCA_trt$u, CCA_trt$v, meta_t,
   component = 1,
@@ -1538,108 +1566,168 @@ df_trt_c1 <- score_frame(
 )
 df_trt_c1$cluster <- spec_clust(df_trt_c1[,1:2], k=2, group = df_trt_c1$Time)$cluster
 
-df_trt_c2 <- score_frame(
-  Xt, Yt, CCA_trt$u, CCA_trt$v, meta_t,
-  component = 2,
-  x_name = "CCX2", y_name = "CCY2",
-  merge_late = merge_late
-)
-df_trt_c2$cluster <- spec_clust(df_trt_c2[,1:2], k=3, group = df_trt_c2$Time)$cluster
-
-
-df_ctrl_c1 <- score_frame(
-  Xa, Ya, CCA_ctrl$u, CCA_ctrl$v, meta_a,
-  component = 1,
-  x_name = "CCX1", y_name = "CCY1",
-  merge_late = merge_late
-)
-df_ctrl_c1$cluster <- spec_clust(df_ctrl_c1[,1:2], k=3, group = df_ctrl_c1$Time)$cluster
-
-
 p_trt_c1 <- plot_score_pair(
   df_trt_c1, "CCX1", "CCY1",
-  "Treatment pair 1",
-  "Metabolome score",
-  "Microbiome score"
+  "",
+  "Metabolome score (first treatment component)",
+  "Microbiome score (first treatment component)",
+  show_centroids = FALSE
 )
 
-p_trt_c2 <- plot_score_pair(
-  df_trt_c2, "CCX2", "CCY2",
-  "Treatment pair 2",
-  "Metabolome score",
-  "Microbiome score"
-)
 
-p_ctrl_c1 <- plot_score_pair(
-  df_ctrl_c1, "CCX1", "CCY1",
-  "Control pair 1",
-   "Metabolome score",
-  "Microbiome score"
-)
-
-# p_motivation <- ggarrange(
-#   p_trt_c1, p_trt_c2, p_ctrl_c1,
-#   nrow = 1,
-#   common.legend = TRUE,
-#   legend = "bottom",
-#   labels = "AUTO"
-# )
-
-# print(p_motivation)
-
-## Extract the complete legend from a plot that contains all three clusters
-shared_legend <- cowplot::get_legend(
-  p_trt_c2 +
-    ggplot2::theme(
-      legend.position = "bottom",
-      legend.box = "horizontal",
-      legend.margin = ggplot2::margin(
-        t = 0,
-        r = 0,
-        b = 0,
-        l = 0
-      )
-    )
-)
-
-## Arrange plots in the original order without individual legends
-plot_row <- ggpubr::ggarrange(
-  p_trt_c1 + ggplot2::theme(legend.position = "none"),
-  p_trt_c2 + ggplot2::theme(legend.position = "none"),
-  p_ctrl_c1 + ggplot2::theme(legend.position = "none"),
-  ncol = 3,
-  nrow = 1,
-  labels = c("A", "B", "C"),
-  align = "hv"
-)
-
-## Add the shared legend below
-final_plot <- cowplot::plot_grid(
-  plot_row,
-  shared_legend,
-  ncol = 1,
-  rel_heights = c(1, 0.10)
-)
-
-final_plot
-
-# motivation_file <- file.path(
-#   "../inst/SavedFigures",
-#   if (merge_late) {
-#     "Chicken_motivation_scores_late_merged.pdf"
-#   } else {
-#     "Chicken_motivation_scores.pdf"
-#   }
-# )
+p_trt_c1_labeled <- ggpubr::ggarrange(p_trt_c1)
+p_trt_c1_labeled
 
 # ggsave(
-#   motivation_file,
-#   plot = final_plot,
-#   width = 15,
+#   "inst/SavedFigures/Chicken_motivation_acute.pdf",
+#   plot = p_trt_c1_labeled,
+#   width = 7.5,
+#   height = 6
+# )
+```
+
+```{r motivation_shared, eval = TRUE, fig.width=9.5, fig.height=5, out.width="90%"}
+## Do treated and untreated birds move the same way along treatment pair 2's own
+## loadings? Both groups are projected onto the SAME loading vectors (Xt, Xa on
+## u_trt2; Yt, Ya on v_trt2) rather than each group's own separately-fit component.
+## Individual bird scores are shown as light jittered points (data-level context,
+## visually secondary); the larger solid points are the four per-day group means,
+## connected by straight line segments only (no LOESS/spline/polynomial -- there are
+## only four discrete sampling times, and a smoothed curve would imply a continuous
+## trajectory that was not observed). Each group is standardized separately (its own
+## mean/SD across all its samples in that modality), so only the relative temporal
+## pattern is shown, not each group's absolute amplitude.
+mot_dpt_levels <- c("DPT-2", "DPT-7", "DPT-12", "DPT-17")
+mot_time_t <- factor(as.character(meta_t$Time), levels = mot_dpt_levels)
+mot_time_a <- factor(as.character(meta_a$Time), levels = mot_dpt_levels)
+
+u_trt2 <- CCA_trt$u[, 2]
+v_trt2 <- CCA_trt$v[, 2]
+
+## day-means on the SAME loading vector, used only for the correlation annotation
+mot_profiles <- function(w, Dt, Da) {
+  list(treated   = tapply(drop(Dt %*% w), mot_time_t, mean)[mot_dpt_levels],
+       untreated = tapply(drop(Da %*% w), mot_time_a, mean)[mot_dpt_levels])
+}
+mot_pm2 <- mot_profiles(u_trt2, Xt, Xa)   # metabolome
+mot_pb2 <- mot_profiles(v_trt2, Yt, Ya)   # microbiome
+r_mtb <- cor(mot_pm2$treated, mot_pm2$untreated)
+r_mb  <- cor(mot_pb2$treated, mot_pb2$untreated)
+
+mot_build_samples <- function(w, Dt, Da, modality) {
+  st <- drop(Dt %*% w); sa <- drop(Da %*% w)
+  rbind(
+    data.frame(Day = as.character(mot_time_t), score = st, Group = "Treated", Modality = modality),
+    data.frame(Day = as.character(mot_time_a), score = sa, Group = "Untreated", Modality = modality)
+  )
+}
+
+mot_samples <- rbind(
+  mot_build_samples(u_trt2, Xt, Xa, "Metabolome"),
+  mot_build_samples(v_trt2, Yt, Ya, "Microbiome")
+)
+
+## standardize each (Group x Modality) cell separately, using its own mean/SD
+mot_samples <- do.call(rbind, lapply(
+  split(mot_samples, list(mot_samples$Group, mot_samples$Modality)),
+  function(g) {
+    g$score <- (g$score - mean(g$score)) / stats::sd(g$score)
+    g
+  }
+))
+mot_samples$Day <- factor(mot_samples$Day, levels = mot_dpt_levels)
+mot_samples$Group <- factor(mot_samples$Group, levels = c("Treated", "Untreated"))
+mot_samples$Modality <- factor(mot_samples$Modality, levels = c("Metabolome", "Microbiome"))
+
+mot_mean_df <- aggregate(score ~ Day + Group + Modality, mot_samples, mean)
+
+## 95% bootstrap CI on each group mean: resample birds within that Day x Group x
+## Modality cell (loading fixed, not refit), 2000 replicates
+set.seed(2024)
+mot_boot_ci <- function(x, B = 2000) {
+  bm <- replicate(B, mean(sample(x, length(x), replace = TRUE)))
+  stats::quantile(bm, c(0.025, 0.975))
+}
+mot_keys <- unique(mot_samples[, c("Day", "Group", "Modality")])
+mot_ci_df <- do.call(rbind, lapply(seq_len(nrow(mot_keys)), function(i) {
+  k <- mot_keys[i, ]
+  x <- mot_samples$score[mot_samples$Day == k$Day & mot_samples$Group == k$Group &
+                         mot_samples$Modality == k$Modality]
+  ci <- mot_boot_ci(x)
+  data.frame(Day = k$Day, Group = k$Group, Modality = k$Modality, lo = ci[1], hi = ci[2])
+}))
+
+mot_mean_df <- merge(mot_mean_df, mot_ci_df, by = c("Day", "Group", "Modality"))
+mot_mean_df$Day <- factor(mot_mean_df$Day, levels = mot_dpt_levels)
+mot_mean_df$Modality <- factor(mot_mean_df$Modality, levels = c("Metabolome", "Microbiome"))
+
+## dodge: treated to the left, untreated to the right, of each DPT tick
+mot_offset <- 0.12
+mot_mean_df$x_num <- as.numeric(mot_mean_df$Day) +
+  ifelse(mot_mean_df$Group == "Treated", -mot_offset, mot_offset)
+mot_samples$x_num <- as.numeric(mot_samples$Day) +
+  ifelse(mot_samples$Group == "Treated", -mot_offset, mot_offset)
+
+## This figure is independent of Panel A (motivation_acute) above; its own two
+## panels -- metabolome and microbiome -- get their own A/B labels, built as two
+## separate plots (not facets of one plot) so each can carry its own ggarrange label
+## the same way the CRISPR ECCITE_score_ta panels do.
+mot_plot_one <- function(modality, r_val, strip_title) {
+  d_samp <- mot_samples[mot_samples$Modality == modality, ]
+  d_mean <- mot_mean_df[mot_mean_df$Modality == modality, ]
+  ggplot2::ggplot() +
+    ggplot2::geom_jitter(
+      data = d_samp,
+      ggplot2::aes(x = x_num, y = score, color = Group),
+      width = 0.05, size = 1.3, alpha = 0.25, show.legend = FALSE
+    ) +
+    ggplot2::geom_line(
+      data = d_mean,
+      ggplot2::aes(x = x_num, y = score, color = Group, group = Group),
+      linewidth = 0.9
+    ) +
+    ggplot2::geom_errorbar(
+      data = d_mean,
+      ggplot2::aes(x = x_num, ymin = lo, ymax = hi, color = Group),
+      width = 0.08, linewidth = 0.6, show.legend = FALSE
+    ) +
+    ggplot2::geom_point(
+      data = d_mean,
+      ggplot2::aes(x = x_num, y = score, color = Group),
+      size = 3
+    ) +
+    ggplot2::annotate("text", x = -Inf, y = Inf, label = sprintf("r = %.2f", r_val),
+                       hjust = -0.2, vjust = 1.6, size = 4.2, fontface = "italic") +
+    ggplot2::scale_color_manual(values = c("Treated" = "#B2182B", "Untreated" = "#2166AC")) +
+    ggplot2::scale_x_continuous(breaks = seq_along(mot_dpt_levels), labels = mot_dpt_levels) +
+    ggplot2::labs(title = strip_title, x = NULL, y = "Standardized projected score", color = NULL) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      text = ggplot2::element_text(size = 14),
+      axis.title = ggplot2::element_text(size = 15),
+      axis.text = ggplot2::element_text(size = 11),
+      plot.title = ggplot2::element_text(face = "bold", size = 13, hjust = 0.5),
+      legend.position = "bottom"
+    )
+}
+
+p_shared_mtb <- mot_plot_one("Metabolome", r_mtb, "Metabolome")
+p_shared_mb  <- mot_plot_one("Microbiome", r_mb, "Microbiome")
+
+p_shared_labeled <- ggpubr::ggarrange(
+  p_shared_mtb, p_shared_mb,
+  ncol = 2, common.legend = TRUE, legend = "bottom",
+  labels = c("A", "B")
+)
+p_shared_labeled
+
+# ggsave(
+#   "inst/SavedFigures/Chicken_motivation_shared_background.pdf",
+#   plot = p_shared_labeled,
+#   width = 9.5,
 #   height = 5
 # )
-
-# cat("Saved motivation figure to:", motivation_file, "\n")
 ```
 
 #### D-1 Temporal-score concordance
@@ -2041,7 +2129,8 @@ p_ctst <- plot_score_pair(
   "cCCX1", "cCCY1",
   "",
   "Contrastive metabolome score",
-  "Contrastive microbiome score"
+  "Contrastive microbiome score",
+    show_centroids = FALSE
 )
 
 print(p_ctst)
@@ -2065,7 +2154,92 @@ print(p_ctst)
 # cat("Saved contrastive score plot to:", contrastive_file, "\n")
 ```
 
-**Interpretation.** The contrastive score plot should be read as a joint two-dimensional representation: the horizontal coordinate is the metabolome score and the vertical coordinate is the microbiome score from the same singular-vector pair. Distinct time-specific centroids therefore indicate coordinated differences across both modalities.
+**Interpretation.** The contrastive score plot should be read as a joint two-dimensional representation: the horizontal coordinate is the metabolome score and the vertical coordinate is the microbiome score from the same singular-vector pair. Distinct time-specific groupings therefore indicate coordinated differences across both modalities.
+
+The companion figure below applies the identical contrastive loadings to the untreated group, for comparison.
+
+```{r contrastive_score_plot_untreated, eval = TRUE}
+df_ctst_ctrl <- score_frame(
+  Xa, Ya, CCA_ctst$u, CCA_ctst$v, meta_a,
+  component = 1,
+  x_name = "cCCX1", y_name = "cCCY1",
+  merge_late = merge_late
+)
+df_ctst_ctrl$cluster <- spec_clust(df_ctst_ctrl[,1:2], k=3, group = df_ctst_ctrl$Time)$cluster
+
+p_ctst_ctrl <- plot_score_pair(
+  df_ctst_ctrl,
+  "cCCX1", "cCCY1",
+  "",
+  "Contrastive metabolome score",
+  "Contrastive microbiome score",
+  show_centroids = FALSE
+)
+
+print(p_ctst_ctrl)
+
+# ggsave(
+#   "inst/SavedFigures/Chicken_contrastive_score_untreated.pdf",
+#   plot = p_ctst_ctrl,
+#   width = 7.5,
+#   height = 6
+# )
+```
+
+The two panels above are clustered independently (k = 3 on all four days), for a like-for-like
+visual comparison with the main-text treated panel. The figure below instead restricts to the
+post-acute samples only (DPT-7, DPT-12, DPT-17) and clusters with k = 2, the same procedure used
+for the ARI reported in the D-4 attribution table above, so the clustering shown is provably the
+same computation as that ARI rather than a similar-looking one.
+
+```{r contrastive_score_plot_postacute, eval = TRUE, fig.width=13, fig.height=6, out.width="100%"}
+df_ctst_postacute_t <- score_frame(
+  Xt[later_t, ], Yt[later_t, ], CCA_ctst$u, CCA_ctst$v, meta_t[later_t, ],
+  component = 1, x_name = "cCCX1", y_name = "cCCY1", merge_late = merge_late
+)
+km_t <- spec_clust(df_ctst_postacute_t[,1:2], k = 2,
+                    group = group3(df_ctst_postacute_t$Time_raw), seed = 1)
+df_ctst_postacute_t$cluster <- km_t$cluster
+
+df_ctst_postacute_a <- score_frame(
+  Xa[later_a, ], Ya[later_a, ], CCA_ctst$u, CCA_ctst$v, meta_a[later_a, ],
+  component = 1, x_name = "cCCX1", y_name = "cCCY1", merge_late = merge_late
+)
+km_a <- spec_clust(df_ctst_postacute_a[,1:2], k = 2,
+                    group = group3(df_ctst_postacute_a$Time_raw), seed = 1)
+df_ctst_postacute_a$cluster <- km_a$cluster
+
+## free (independent) axis scales per panel, not shared
+p_ctst_postacute_t <- plot_score_pair(
+  df_ctst_postacute_t, "cCCX1", "cCCY1",
+  sprintf("Treated, post-acute only (ARI = %.2f)", km_t$ari),
+  "Contrastive metabolome score",
+  "Contrastive microbiome score",
+  show_centroids = FALSE
+)
+
+p_ctst_postacute_a <- plot_score_pair(
+  df_ctst_postacute_a, "cCCX1", "cCCY1",
+  sprintf("Untreated, post-acute only (ARI = %.2f)", km_a$ari),
+  "Contrastive metabolome score",
+  "Contrastive microbiome score",
+  show_centroids = FALSE
+)
+
+p_ctst_postacute <- ggpubr::ggarrange(
+  p_ctst_postacute_t, p_ctst_postacute_a,
+  ncol = 2, common.legend = TRUE, legend = "bottom", align = "hv"
+)
+
+print(p_ctst_postacute)
+
+# ggsave(
+#   "inst/SavedFigures/Chicken_contrastive_score_postacute_twogroup.pdf",
+#   plot = p_ctst_postacute,
+#   width = 13,
+#   height = 6
+# )
+```
 
 ### F. Selected features and temporal mean heatmaps
 
