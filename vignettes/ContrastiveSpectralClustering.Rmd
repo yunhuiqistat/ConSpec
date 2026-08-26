@@ -2135,6 +2135,15 @@ p_ctst <- plot_score_pair(
 
 print(p_ctst)
 
+p_ctst2 <- plot_score_pair(
+   df_ctst_c1,
+   "cCCX1", "cCCY1",
+   "Treated, all DPTs",
+   "Contrastive metabolome score",
+   "Contrastive microbiome score",
+     show_centroids = FALSE
+)
+
 # contrastive_file <- file.path(
 #   "../inst/SavedFigures",
 #   if (merge_late) {
@@ -2148,6 +2157,13 @@ print(p_ctst)
 #   contrastive_file,
 #   plot = p_ctst,
 #   width = 7.5,
+#   height = 6
+# )
+
+# ggsave(
+#   "inst/SavedFigures/Chicken_contrastive_score_wtitle.pdf",
+#   plot = p_ctst2,
+#   width = 7.3,
 #   height = 6
 # )
 
@@ -2212,19 +2228,35 @@ df_ctst_postacute_a$cluster <- km_a$cluster
 ## free (independent) axis scales per panel, not shared
 p_ctst_postacute_t <- plot_score_pair(
   df_ctst_postacute_t, "cCCX1", "cCCY1",
-  sprintf("Treated, post-acute only (ARI = %.2f)", km_t$ari),
+  sprintf("Treated, post-acute only"),
   "Contrastive metabolome score",
   "Contrastive microbiome score",
   show_centroids = FALSE
-)
+)+
+  ggplot2::scale_color_manual(
+    values = c("DPT-7" = "#377EB8", "DPT-12" = "#4DAF4A", "DPT-17" = "#984EA3"),
+    drop = FALSE
+  ) +
+  ggplot2::scale_fill_manual(
+    values = c("DPT-7" = "#377EB8", "DPT-12" = "#4DAF4A", "DPT-17" = "#984EA3"),
+    drop = FALSE
+  )
 
 p_ctst_postacute_a <- plot_score_pair(
   df_ctst_postacute_a, "cCCX1", "cCCY1",
-  sprintf("Untreated, post-acute only (ARI = %.2f)", km_a$ari),
+  sprintf("Untreated, post-acute only"),
   "Contrastive metabolome score",
   "Contrastive microbiome score",
   show_centroids = FALSE
-)
+)+
+  ggplot2::scale_color_manual(
+    values = c("DPT-7" = "#377EB8", "DPT-12" = "#4DAF4A", "DPT-17" = "#984EA3"),
+    drop = FALSE
+  ) +
+  ggplot2::scale_fill_manual(
+    values = c("DPT-7" = "#377EB8", "DPT-12" = "#4DAF4A", "DPT-17" = "#984EA3"),
+    drop = FALSE
+  )
 
 p_ctst_postacute <- ggpubr::ggarrange(
   p_ctst_postacute_t, p_ctst_postacute_a,
@@ -2237,6 +2269,17 @@ print(p_ctst_postacute)
 #   "inst/SavedFigures/Chicken_contrastive_score_postacute_twogroup.pdf",
 #   plot = p_ctst_postacute,
 #   width = 13,
+#   height = 6
+# )
+
+p_ctst_wtitle_postacute <- ggpubr::ggarrange(
+  p_ctst2, p_ctst_postacute_t, p_ctst_postacute_a,
+  ncol = 3, common.legend = TRUE, legend = "bottom", align = "hv",labels = "AUTO"
+)
+# ggsave(
+#   "inst/SavedFigures/Chicken_contrastive_score_all_twogroup.pdf",
+#   plot = p_ctst_wtitle_postacute,
+#   width = 18,
 #   height = 6
 # )
 ```
